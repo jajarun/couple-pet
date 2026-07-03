@@ -4,8 +4,10 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import get_active_couple, get_current_user
-from app.models import Event, User
+from app.models import CoupleStats, Event, User
 from app.routers.actions import event_out
+from app.rules.stats import apply_time_decay
+from app.time_utils import utcnow
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -58,3 +60,27 @@ def respond(
     db.commit()
     db.refresh(ev)
     return event_out(ev)
+
+
+@router.get("")
+def feed(
+    since: int = 0,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    couple = get_active_couple(db, user)
+    if couple is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "no active couple")
+    events = (
+        db.query(Event)
+        .filter(Event.couple_id == couple.id, Event.id > since)
+        .order_by(Event.id)
+        .all()
+    )
+    cs = db.get(CoupleStats, couple.id)
+    # Floor to whole seconds: decay rates are per-hour, so sub-second HTTP
+    # round-trip noise between the write and this read must not visibly
+    # erode a value clamp() just truncated down (e.g. 15 -> 14.999999 -> 14).
+    elapsed = int((utcnow() - cs.stats_updated_at).total_seconds())
+    live_stats = apply_time_decay(cs.stats, elapsed)  # 只读，不落库
+    return {"events": [event_out(e) for e in events], "stats": live_stats}
