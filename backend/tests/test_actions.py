@@ -1,0 +1,74 @@
+from app.rules.actions import LOCAL_REACTIONS
+from tests.conftest import auth_headers
+
+
+def _pair(client):
+    ha = auth_headers(client, "alice")
+    code = client.post("/couples", headers=ha).json()["pair_code"]
+    hb = auth_headers(client, "bob")
+    client.post("/couples/join", headers=hb, json={"pair_code": code})
+    # alice sets her persona so the stub reaction is in-persona
+    client.put("/avatars/mine", headers=ha, json={"persona": {"tone": "毒舌"}})
+    return ha, hb
+
+
+def _act(client, headers, action_type, key, content=""):
+    return client.post(
+        "/actions",
+        headers=headers,
+        json={"action_type": action_type, "content": content, "client_key": key},
+    )
+
+
+def test_scold_produces_action_and_ai_reaction(client):
+    ha, hb = _pair(client)
+    # bob scolds his pet (alice's avatar, persona 毒舌)
+    r = _act(client, hb, "scold", "k1", "大猪蹄子")
+    assert r.status_code == 200
+    body = r.json()
+    kinds = [e["kind"] for e in body["events"]]
+    assert "action" in kinds and "ai_reaction" in kinds
+    reaction = next(e for e in body["events"] if e["kind"] == "ai_reaction")
+    assert reaction["parent_event_id"] is not None
+    assert "毒舌" in reaction["content"]
+    assert body["stats"]["grievance"] == 15
+
+
+def test_cheap_action_uses_local_template(client):
+    ha, hb = _pair(client)
+    r = _act(client, hb, "feed_dogfood", "k1")
+    reaction = next(e for e in r.json()["events"] if e["kind"] == "ai_reaction")
+    assert reaction["content"] in LOCAL_REACTIONS["feed_dogfood"]
+    assert r.json()["stats"]["dogfood"] == 20
+
+
+def test_idempotent_replay_returns_same_events(client):
+    ha, hb = _pair(client)
+    first = _act(client, hb, "scold", "same-key", "x").json()
+    second = _act(client, hb, "scold", "same-key", "x").json()
+    assert [e["id"] for e in first["events"]] == [e["id"] for e in second["events"]]
+    # grievance did not double-apply
+    assert second["stats"]["grievance"] == 15
+
+
+def test_unknown_action_rejected(client):
+    ha, hb = _pair(client)
+    r = _act(client, hb, "nope", "k1")
+    assert r.status_code == 422
+
+
+def test_requires_active_couple(client):
+    h = auth_headers(client, "solo")
+    r = _act(client, h, "scold", "k1", "x")
+    assert r.status_code == 409
+
+
+def test_over_quota_falls_back_to_local(client, monkeypatch):
+    ha, hb = _pair(client)
+    import app.routers.actions as actions_mod
+
+    monkeypatch.setattr(actions_mod, "consume_ai_quota", lambda user, db: False)
+    r = _act(client, hb, "scold", "k1", "大猪蹄子")
+    assert r.status_code == 200  # never errors on quota exhaustion
+    reaction = next(e for e in r.json()["events"] if e["kind"] == "ai_reaction")
+    assert reaction["content"]  # a fallback line, not empty
