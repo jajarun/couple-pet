@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 
-app = FastAPI(title="AI Pet Game API")
+from app.routers import auth
+
+app = FastAPI(title="AI Couple Pet Game API")
+
+app.include_router(auth.router)
 
 
 @app.get("/health")
