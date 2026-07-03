@@ -10,13 +10,15 @@ from app.db import get_db
 from app.deps import get_active_couple, get_current_user
 from app.models import Avatar, CoupleStats, Event, User
 from app.rules.actions import ACTION_TYPES, LOCAL_REACTIONS, apply_action
-from app.rules.stats import apply_time_decay
+from app.rules.stats import apply_time_decay, needs_comfort
 from app.time_utils import utcnow
 
 router = APIRouter(tags=["actions"])
 
 # 兜底本地文案（AI 动作超额度时用）
 _AI_FALLBACK = ["（分身正在充电，先甩你个白眼~）", "（本尊今日营业已满，明天再怼你）"]
+
+_COMFORT_NARRATION = "⚠️ 委屈值爆表啦——TA 在角落画圈圈，快去哄哄（喂口狗粮/抱一个/道个歉）~"
 
 
 class ActionIn(BaseModel):
@@ -118,6 +120,18 @@ def do_action(
         parent_event_id=action_event.id,
     )
     db.add(reaction_event)
+
+    if needs_comfort(new_stats):
+        db.add(
+            Event(
+                couple_id=couple.id,
+                actor_user_id=None,
+                kind="system",
+                content=_COMFORT_NARRATION,
+                parent_event_id=action_event.id,
+            )
+        )
+
     db.commit()
     db.refresh(action_event)
     return _bundle(db, couple.id, action_event, new_stats)
