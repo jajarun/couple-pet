@@ -64,7 +64,9 @@ class CoupleStats(Base):
 class Event(Base):
     __tablename__ = "events"
     __table_args__ = (
-        UniqueConstraint("couple_id", "client_key", name="uq_events_couple_client_key"),
+        UniqueConstraint(
+            "couple_id", "client_key", "kind", name="uq_events_couple_client_key_kind"
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)  # 轮询游标

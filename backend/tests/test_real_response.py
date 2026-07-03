@@ -57,6 +57,19 @@ def test_cannot_respond_to_event_in_other_couple(client):
     assert r.status_code in (403, 404)
 
 
+def test_respond_client_key_may_collide_with_an_action_key(client):
+    ha, hb = _pair(client)
+    bundle = _scold(client, hb, key="k1")  # action uses client_key "k1"
+    action_id = next(e["id"] for e in bundle["events"] if e["kind"] == "action")
+    r = client.post(
+        f"/events/{action_id}/respond",
+        headers=ha,
+        json={"content": "x", "client_key": "k1"},  # reuse the action's key
+    )
+    assert r.status_code == 200          # was 500 before the constraint fix
+    assert r.json()["kind"] == "real_response"
+
+
 def test_respond_is_idempotent(client):
     ha, hb = _pair(client)
     bundle = _scold(client, hb)
