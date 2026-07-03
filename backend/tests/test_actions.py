@@ -32,6 +32,7 @@ def test_scold_produces_action_and_ai_reaction(client):
     assert reaction["parent_event_id"] is not None
     assert "毒舌" in reaction["content"]
     assert body["stats"]["grievance"] == 15
+    assert body["events"][0]["created_at"].endswith("Z")
 
 
 def test_cheap_action_uses_local_template(client):

@@ -16,7 +16,9 @@ def test_stat_keys_and_defaults():
 def test_clamp_bounds_and_int():
     assert clamp(-5) == 0
     assert clamp(150) == 100
-    assert clamp(42.9) == 42
+    assert clamp(42.9) == 43      # round-half-up (was truncation)
+    assert clamp(42.4) == 42
+    assert clamp(42.5) == 43
     assert isinstance(clamp(42.9), int)
 
 

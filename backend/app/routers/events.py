@@ -78,9 +78,6 @@ def feed(
         .all()
     )
     cs = db.get(CoupleStats, couple.id)
-    # Floor to whole seconds: decay rates are per-hour, so sub-second HTTP
-    # round-trip noise between the write and this read must not visibly
-    # erode a value clamp() just truncated down (e.g. 15 -> 14.999999 -> 14).
-    elapsed = int((utcnow() - cs.stats_updated_at).total_seconds())
+    elapsed = (utcnow() - cs.stats_updated_at).total_seconds()
     live_stats = apply_time_decay(cs.stats, elapsed)  # 只读，不落库
     return {"events": [event_out(e) for e in events], "stats": live_stats}

@@ -11,7 +11,7 @@ TIME_DELTA_PER_HOUR = {"miss": 4.0, "grievance": -2.0, "dogfood": -1.0}
 
 
 def clamp(v: float) -> int:
-    return int(max(0, min(100, v)))
+    return int(max(0, min(100, v)) + 0.5)
 
 
 def apply_time_decay(stats: dict, elapsed_seconds: float) -> dict:

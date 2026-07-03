@@ -36,7 +36,7 @@ def event_out(ev: Event) -> dict:
         "action_type": ev.action_type,
         "content": ev.content,
         "parent_event_id": ev.parent_event_id,
-        "created_at": ev.created_at.isoformat(),
+        "created_at": ev.created_at.isoformat() + "Z",
     }
 
 
