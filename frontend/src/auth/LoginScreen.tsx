@@ -8,6 +8,7 @@ export function LoginScreen() {
   const nav = useNavigate()
   const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(true)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -16,7 +17,7 @@ export function LoginScreen() {
     setErr('')
     setBusy(true)
     try {
-      await login(nickname, password)
+      await login(nickname, password, remember)
       nav('/')
     } catch (e2) {
       setErr(
@@ -30,17 +31,21 @@ export function LoginScreen() {
   }
 
   return (
-    <form onSubmit={submit} style={{ display: 'grid', gap: 10, padding: 16 }}>
-      <h2>登录</h2>
+    <form onSubmit={submit} className="pad stack" style={{ gap: 16, marginTop: 'auto', marginBottom: 'auto' }}>
+      <div className="center stack" style={{ gap: 8 }}>
+        <div className="brand-mark">💕</div>
+        <h2>欢迎回来</h2>
+        <p className="muted tiny">TA 的分身正等着你</p>
+      </div>
       <input aria-label="昵称" value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="昵称" />
       <input aria-label="密码" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="密码" />
-      {err && (
-        <div role="alert" style={{ color: 'var(--warn)' }}>
-          {err}
-        </div>
-      )}
-      <button type="submit" disabled={busy}>进去</button>
-      <Link to="/register">还没账号？去注册</Link>
+      <label className="remember-row">
+        <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+        记住我，下次自动登录
+      </label>
+      {err && <div role="alert" style={{ color: 'var(--warn)' }}>{err}</div>}
+      <button type="submit" className="btn-primary btn-lg btn-block" disabled={busy}>进去</button>
+      <Link className="center" to="/register">还没账号？去注册</Link>
     </form>
   )
 }

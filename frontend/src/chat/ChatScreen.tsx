@@ -1,12 +1,40 @@
-import { useState } from 'react'
-import { useFeed } from '../hooks/useFeed'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { useFeed, useLoadOlder } from '../hooks/useFeed'
 import { useAction } from '../hooks/useAction'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
-import { SpeechBubble } from '../components/SpeechBubble'
 import { LoadingBanter } from '../components/LoadingBanter'
+import { useAutoScrollBottom } from '../hooks/useAutoScrollBottom'
 import { GameEvent } from '../api/types'
+import { Gender } from '../theme'
 
-export function ChatScreen({ coupleId, myUserId }: { coupleId: number; myUserId: number }) {
+// Verb templates: {o} = the person on the receiving end (the non-actor).
+const ACTION_VERB: Record<string, (o: string) => string> = {
+  scold: (o) => `骂了${o}`,
+  poke: (o) => `戳了${o}`,
+  feed_dogfood: () => '喂了狗粮',
+  hug: (o) => `抱了${o}`,
+  miss_you: (o) => `说想${o}`,
+  apologize: () => '道了歉',
+  chat: (o) => `找${o}唠`,
+}
+
+function genderClass(g?: Gender | null): string {
+  return g === 'male' ? 'g-male' : g === 'female' ? 'g-female' : 'g-neutral'
+}
+
+export function ChatScreen({
+  coupleId,
+  myUserId,
+  partnerId,
+  myGender,
+  partnerGender,
+}: {
+  coupleId: number
+  myUserId: number
+  partnerId?: number
+  myGender?: Gender | null
+  partnerGender?: Gender | null
+}) {
   const feed = useFeed(coupleId)
   const action = useAction(coupleId)
   const key = useIdempotencyKey()
@@ -14,16 +42,33 @@ export function ChatScreen({ coupleId, myUserId }: { coupleId: number; myUserId:
   const [sendErr, setSendErr] = useState('')
 
   const events = feed.data?.events ?? []
-  const chatActionIds = new Set(
-    events
-      .filter((e) => e.kind === 'action' && e.action_type === 'chat' && e.actor_user_id === myUserId)
-      .map((e) => e.id),
-  )
-  const thread = events.filter(
-    (e) =>
-      (e.kind === 'action' && e.action_type === 'chat' && e.actor_user_id === myUserId) ||
-      (e.kind === 'ai_reaction' && e.parent_event_id != null && chatActionIds.has(e.parent_event_id)),
-  )
+  const endRef = useAutoScrollBottom(events.length + (action.isPending ? 1 : 0))
+  const byId = new Map(events.map((e) => [e.id, e]))
+
+  // 向上滑动懒加载更早的消息
+  const { loadOlder, loadingOlder } = useLoadOlder(coupleId)
+  const hasMore = feed.data?.hasMore ?? false
+  const oldestLoaded = feed.data?.oldestLoaded ?? 0
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const pendingPrepend = useRef<{ prevHeight: number; prevTop: number } | null>(null)
+
+  const onScroll = () => {
+    const el = bodyRef.current
+    if (!el || loadingOlder || !hasMore) return
+    if (el.scrollTop < 80) {
+      pendingPrepend.current = { prevHeight: el.scrollHeight, prevTop: el.scrollTop }
+      loadOlder()
+    }
+  }
+
+  // 前插历史后，把视口锚回原来的位置，避免内容"跳走"
+  useLayoutEffect(() => {
+    const el = bodyRef.current
+    if (el && pendingPrepend.current) {
+      el.scrollTop = pendingPrepend.current.prevTop + (el.scrollHeight - pendingPrepend.current.prevHeight)
+      pendingPrepend.current = null
+    }
+  }, [oldestLoaded])
 
   const send = () => {
     if (!text.trim()) return
@@ -41,24 +86,98 @@ export function ChatScreen({ coupleId, myUserId }: { coupleId: number; myUserId:
     )
   }
 
-  return (
-    <div style={{ padding: 8, display: 'grid', gap: 8 }}>
-      <div style={{ display: 'grid', gap: 6 }}>
-        {thread.map((e: GameEvent) =>
-          e.kind === 'action' ? (
-            <div key={e.id} style={{ textAlign: 'right' }}>🧑 {e.content}</div>
-          ) : (
-            <div key={e.id} style={{ textAlign: 'left' }}>
-              <SpeechBubble text={e.content} />
-            </div>
-          ),
-        )}
-        {action.isPending && <LoadingBanter />}
+  const bubble = (side: 'left' | 'right', variant: 'real' | 'ai', g: string, content: string, label?: string) => (
+    <div className={`msg-row ${side}`}>
+      <div className={`bubble ${variant} ${g}`}>
+        {label && <span className="who">{label}</span>}
+        {content}
       </div>
-      {sendErr && <div role="alert" style={{ color: 'var(--warn)' }}>{sendErr}</div>}
-      <div style={{ display: 'flex', gap: 6 }}>
-        <input aria-label="聊天输入" style={{ flex: 1 }} value={text} onChange={(e) => setText(e.target.value)} placeholder="随便唠两句…" />
-        <button onClick={send} disabled={action.isPending}>发</button>
+    </div>
+  )
+
+  const renderEvent = (ev: GameEvent) => {
+    if (ev.kind === 'system')
+      return (
+        <div key={ev.id} className="tip warn" role="note">
+          <span>{ev.content}</span>
+        </div>
+      )
+
+    // 分身主动撩你（nudge）：只显示冲着「我」来的那条（actor = 说话分身的 subject = TA）
+    if (ev.kind === 'ai_reaction' && ev.action_type === 'nudge') {
+      if (partnerId != null && ev.actor_user_id !== partnerId) return null
+      return <div key={ev.id}>{bubble('left', 'ai', genderClass(partnerGender), ev.content, '🤖 分身')}</div>
+    }
+
+    if (ev.kind === 'ai_reaction') {
+      const parent = ev.parent_event_id != null ? byId.get(ev.parent_event_id) : undefined
+      const parentMine = parent?.actor_user_id === myUserId
+      return (
+        <div key={ev.id}>
+          {bubble(parentMine ? 'left' : 'right', 'ai', genderClass(parentMine ? partnerGender : myGender), ev.content, '🤖 分身')}
+        </div>
+      )
+    }
+
+    if (ev.kind === 'real_response') {
+      const mine = ev.actor_user_id === myUserId
+      return (
+        <div key={ev.id}>
+          {bubble(mine ? 'right' : 'left', 'real', genderClass(mine ? myGender : partnerGender), ev.content, mine ? '💗 本尊（你）' : '💗 本尊')}
+        </div>
+      )
+    }
+
+    // kind === 'action'
+    const mine = ev.actor_user_id === myUserId
+    if (ev.action_type === 'chat')
+      return (
+        <div key={ev.id}>
+          {bubble(mine ? 'right' : 'left', 'real', genderClass(mine ? myGender : partnerGender), ev.content)}
+        </div>
+      )
+
+    // non-chat action → inline tip
+    const who = mine ? '你' : 'TA'
+    const other = mine ? 'TA' : '你'
+    const make = ev.action_type ? ACTION_VERB[ev.action_type] : undefined
+    const verb = make ? make(other) : '做了个动作'
+    return (
+      <div key={ev.id} className="tip">
+        <span>
+          {who}
+          {verb}
+          {ev.content ? `：「${ev.content}」` : ''}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="screenview">
+      <div className="screenview-body pad" ref={bodyRef} onScroll={onScroll}>
+        <div className="chat-log">
+          {loadingOlder && (
+            <div className="tip">
+              <span>加载更早的消息…</span>
+            </div>
+          )}
+          {events.length === 0 && (
+            <div className="tip">
+              <span>还没有故事～去「TA」那边戳戳，或在下面唠两句</span>
+            </div>
+          )}
+          {events.map(renderEvent)}
+          {action.isPending && <LoadingBanter />}
+          <div ref={endRef} />
+        </div>
+      </div>
+      <div className="screenview-dock stack" style={{ gap: 8 }}>
+        {sendErr && <div role="alert" style={{ color: 'var(--warn)' }}>{sendErr}</div>}
+        <div className="chat-bar">
+          <input aria-label="聊天输入" value={text} onChange={(e) => setText(e.target.value)} placeholder="随便唠两句…" />
+          <button className="btn-primary" onClick={send} disabled={action.isPending}>发</button>
+        </div>
       </div>
     </div>
   )

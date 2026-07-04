@@ -49,6 +49,29 @@ def test_feed_requires_active_couple(client):
     assert client.get("/events?since=0", headers=h).status_code == 409
 
 
+def test_feed_windowed_initial_and_older_pagination(client):
+    ha, hb = _pair(client)
+    for i in range(5):
+        _scold(client, hb, f"k{i}")  # 5 actions × (action + ai_reaction) = 10 events, ids 1..10
+
+    # 首屏只拿最新 4 条（升序），且提示还有更早的
+    win = client.get("/events?limit=4", headers=ha).json()
+    ids = [e["id"] for e in win["events"]]
+    assert ids == sorted(ids) and len(ids) == 4
+    assert ids == [7, 8, 9, 10]
+    assert win["has_more"] is True
+
+    # 上翻一页：更早的 4 条，全部 id 更小、仍升序
+    older = client.get("/events?before=7&limit=4", headers=ha).json()
+    assert [e["id"] for e in older["events"]] == [3, 4, 5, 6]
+    assert older["has_more"] is True
+
+    # 翻到底：只剩 2 条，has_more 变 False
+    last = client.get("/events?before=3&limit=4", headers=ha).json()
+    assert [e["id"] for e in last["events"]] == [1, 2]
+    assert last["has_more"] is False
+
+
 def test_feed_scoped_to_own_couple(client):
     ha, hb = _pair(client)
     _scold(client, hb, "k1")

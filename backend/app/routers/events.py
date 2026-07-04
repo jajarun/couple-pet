@@ -65,19 +65,34 @@ def respond(
 @router.get("")
 def feed(
     since: int = 0,
+    before: int = 0,
+    limit: int = 0,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """三种取法（都返回升序）：
+    - before>0：拿 id<before 的最近 limit 条（向上翻历史，懒加载）
+    - limit>0 且 since==0：拿最新 limit 条（首屏，不再一次性全拉）
+    - 否则：拿 id>since 的全部（向前轮询新消息，原行为不变）
+    另附 has_more：比返回的最旧一条更早是否还有历史。"""
     couple = get_active_couple(db, user)
     if couple is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "no active couple")
-    events = (
-        db.query(Event)
-        .filter(Event.couple_id == couple.id, Event.id > since)
-        .order_by(Event.id)
-        .all()
-    )
+    base = db.query(Event).filter(Event.couple_id == couple.id)
+    if before > 0:
+        rows = base.filter(Event.id < before).order_by(Event.id.desc()).limit(limit or 25).all()
+        rows = list(reversed(rows))
+    elif limit > 0 and since == 0:
+        rows = base.order_by(Event.id.desc()).limit(limit).all()
+        rows = list(reversed(rows))
+    else:
+        rows = base.filter(Event.id > since).order_by(Event.id).all()
+    has_more = bool(rows) and base.filter(Event.id < rows[0].id).first() is not None
     cs = db.get(CoupleStats, couple.id)
     elapsed = (utcnow() - cs.stats_updated_at).total_seconds()
     live_stats = apply_time_decay(cs.stats, elapsed)  # 只读，不落库
-    return {"events": [event_out(e) for e in events], "stats": live_stats}
+    return {
+        "events": [event_out(e) for e in rows],
+        "stats": live_stats,
+        "has_more": has_more,
+    }

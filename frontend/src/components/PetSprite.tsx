@@ -6,9 +6,9 @@ export function PetSprite({ face = '◕‿◕', reaction }: { face?: string; rea
       key={reaction ?? 'idle'}
       data-testid="pet"
       data-reaction={reaction ?? ''}
-      animate={reaction ? { rotate: [0, -8, 8, -4, 0], scale: [1, 1.05, 1] } : { y: [0, -2, 0] }}
-      transition={reaction ? { duration: 0.4 } : { duration: 2, repeat: Infinity }}
-      style={{ fontSize: 56, textAlign: 'center', padding: 16 }}
+      className="pet-face"
+      animate={reaction ? { rotate: [0, -9, 9, -4, 0], scale: [1, 1.08, 1] } : { y: [0, -4, 0] }}
+      transition={reaction ? { duration: 0.45 } : { duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
     >
       {face}
     </motion.div>

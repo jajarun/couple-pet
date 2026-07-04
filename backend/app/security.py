@@ -18,7 +18,7 @@ def verify_password(pw: str, pw_hash: str) -> bool:
     return _pwd.verify(pw, pw_hash)
 
 
-def create_access_token(sub: str, expires_minutes: int = 60 * 24 * 7) -> str:
+def create_access_token(sub: str, expires_minutes: int = 60 * 24 * 30) -> str:
     expire = utcnow() + timedelta(minutes=expires_minutes)
     payload = {"sub": sub, "exp": expire}
     return jwt.encode(payload, settings.jwt_secret, algorithm=_ALGO)

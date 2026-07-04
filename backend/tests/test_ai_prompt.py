@@ -42,6 +42,18 @@ def test_missing_seed_still_builds_system():
     assert "高冷" in msgs[0]["content"]
 
 
+def test_gender_hint_present_when_set():
+    male = build_messages({"tone": "毒舌", "gender": "male"}, LOW, "chat", "hi", [])
+    assert "男生" in male[0]["content"]
+    female = build_messages({"tone": "毒舌", "gender": "female"}, LOW, "chat", "hi", [])
+    assert "女生" in female[0]["content"]
+
+
+def test_gender_hint_absent_when_unset():
+    msgs = build_messages({"tone": "毒舌"}, LOW, "chat", "hi", [])
+    assert "男生" not in msgs[0]["content"] and "女生" not in msgs[0]["content"]
+
+
 def test_mood_hint_reflects_high_grievance():
     assert "委屈" in _mood_hint({"grievance": 70, "dogfood": 0, "miss": 0, "intimacy": 0})
 

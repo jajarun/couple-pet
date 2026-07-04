@@ -10,7 +10,7 @@ from app.config import settings
 from app.db import get_db
 from app.deps import get_active_couple, get_current_user
 from app.models import Avatar, CoupleStats, Event, User
-from app.rules.actions import ACTION_TYPES, LOCAL_REACTIONS, apply_action
+from app.rules.actions import ACTION_TYPES, LOCAL_REACTIONS, NUDGE_LINES, apply_action
 from app.rules.stats import apply_time_decay, needs_comfort
 from app.time_utils import utcnow
 
@@ -130,8 +130,11 @@ def do_action(
     if needs_ai:
         if ai_quota_available(user, db):
             recent = _recent_context(db, couple.id, user.id, settings.deepseek_recent_context)
+            # 分身代表 subject（也就是 TA）——把 TA 的性别喂进人设，让口吻更像本人
+            subject = db.get(User, pet.subject_user_id)
+            persona = {**(pet.persona or {}), "gender": subject.gender if subject else None}
             reaction_text, used_ai = generate_reaction(
-                pet.persona, new_stats, body.action_type, body.content, recent, pet.memory_summary
+                persona, new_stats, body.action_type, body.content, recent, pet.memory_summary
             )
             if used_ai:
                 record_ai_usage(user, db)
@@ -176,3 +179,61 @@ def do_action(
     db.commit()
     db.refresh(action_event)
     return _bundle(db, couple.id, action_event, new_stats)
+
+
+@router.post("/nudge")
+def nudge(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """页面开着时前端约每分钟轮询一次：闲够了就让分身主动撩饲养者一下。
+    结合当前数值心情 + subject 的性别/人设生成。返回 {"event": ...} 或 {"event": None}。"""
+    couple = get_active_couple(db, user)
+    if couple is None:
+        return {"event": None}
+
+    last = (
+        db.query(Event)
+        .filter(Event.couple_id == couple.id)
+        .order_by(Event.id.desc())
+        .first()
+    )
+    now = utcnow()
+    if last is not None and (now - last.created_at).total_seconds() < settings.nudge_idle_seconds:
+        return {"event": None}  # 刚有动静，别打扰
+
+    pet = (
+        db.query(Avatar)
+        .filter(Avatar.couple_id == couple.id, Avatar.keeper_user_id == user.id)
+        .first()
+    )
+    if pet is None or pet.name == "":
+        return {"event": None}  # 分身还没捏出来
+
+    cs = db.get(CoupleStats, couple.id)
+    subject = db.get(User, pet.subject_user_id)
+    persona = {**(pet.persona or {}), "gender": subject.gender if subject else None}
+
+    if settings.deepseek_api_key and ai_quota_available(user, db):
+        recent = _recent_context(db, couple.id, user.id, settings.deepseek_recent_context)
+        text, used_ai = generate_reaction(
+            persona, cs.stats, "nudge", "", recent, pet.memory_summary
+        )
+        if used_ai:
+            record_ai_usage(user, db)
+    else:
+        text = random.choice(NUDGE_LINES)
+
+    # actor 记成 subject（分身代表的人）——前端据此把主动消息定位到对应饲养者、摆到左侧
+    ev = Event(
+        couple_id=couple.id,
+        actor_user_id=pet.subject_user_id,
+        kind="ai_reaction",
+        action_type="nudge",
+        content=text,
+        parent_event_id=None,
+    )
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
+    return {"event": event_out(ev)}

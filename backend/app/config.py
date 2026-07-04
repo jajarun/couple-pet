@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     deepseek_max_tokens: int = 200
     deepseek_temperature: float = 1.3
     deepseek_recent_context: int = 10  # 喂进 prompt 的最近事件条数
+    nudge_idle_seconds: int = 55  # 距上条事件多久没动静，分身才主动撩你（前端约每分钟轮询一次）
 
 
 settings = Settings()

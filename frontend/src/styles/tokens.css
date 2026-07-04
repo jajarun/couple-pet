@@ -1,23 +1,55 @@
 :root {
-  --bg: #0f1020;
-  --machine: #6c7cff;
-  --screen: #cde8b4;      /* 复古点阵绿屏 */
-  --screen-ink: #1c2a14;
-  --panel: #2a2c47;
-  --ink: #f4f4ff;
-  --accent: #ff6b9d;      /* 情侣软萌粉 */
-  --warn: #ff5252;
-  --good: #7be0a0;
-  --radius: 10px;
-  --shadow-press: inset 0 3px 0 rgba(0, 0, 0, 0.35);
-  --font-pixel: 'Courier New', ui-monospace, monospace;
+  color-scheme: light;
+
+  /* ---- neutral canvas: flat, soft, comfortable ---- */
+  --bg:        #F4F5FA;
+  --surface:   #FFFFFF;
+  --surface-2: #EEF0F7;   /* sunk fields / tracks */
+  --ink:       #2B2D3A;   /* primary text (soft near-black) */
+  --ink-2:     #6B6E82;   /* secondary text */
+  --ink-3:     #A6A9BD;   /* placeholders / tertiary */
+  --line:      #E9EBF3;   /* hairlines */
+
+  /* ---- theme accent: default lavender until a gender is chosen ---- */
+  --primary:       #8B7BF0;
+  --primary-ink:   #FFFFFF;   /* text/icon on a primary fill */
+  --primary-strong:#6D5CE0;   /* accent text / links on white */
+  --primary-soft:  #EEEBFD;   /* tints, active tab, ambient wash */
+  --aura:          #A99BF5;   /* mood-glow behind the avatar */
+
+  /* ---- semantic ---- */
+  --good: #2FBE77;
+  --warn: #FF5C7A;
+  --gold: #FFB020;
+
+  /* ---- shape & depth (flat, but soft) ---- */
+  --r-sm:   10px;
+  --r:      16px;
+  --r-lg:   22px;
+  --r-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(26, 28, 46, 0.05), 0 8px 24px rgba(26, 28, 46, 0.06);
+
+  --tap: 48px;
+  --shell-max: 480px;
+
+  --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'MiSans',
+    'HarmonyOS Sans SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
 }
-* { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; }
-body {
-  background: var(--bg);
-  color: var(--ink);
-  font-family: var(--font-pixel);
-  -webkit-font-smoothing: none;
-  image-rendering: pixelated;
+
+/* 男方 → 蓝色 */
+:root[data-theme='male'] {
+  --primary:        #3E7BFA;
+  --primary-ink:    #FFFFFF;
+  --primary-strong: #2C63E0;
+  --primary-soft:   #E9F1FF;
+  --aura:           #6AA6FF;
+}
+
+/* 女方 → 淡粉色（浅粉基调；填充用软粉 + 深玫瑰字，保证可读） */
+:root[data-theme='female'] {
+  --primary:        #FFA3C7;
+  --primary-ink:    #7A2450;
+  --primary-strong: #C43D74;
+  --primary-soft:   #FFEBF3;
+  --aura:           #FFB9D6;
 }

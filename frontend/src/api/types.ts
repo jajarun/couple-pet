@@ -1,6 +1,7 @@
 export interface AuthUser {
   id: number
   nickname: string
+  gender?: 'male' | 'female' | null
 }
 export interface AuthResponse {
   access_token: string
@@ -34,7 +35,7 @@ export interface Avatar {
   persona: Record<string, unknown>
 }
 export type CoupleState =
-  | { couple_id: number; status: 'active'; partner_id: number }
+  | { couple_id: number; status: 'active'; partner_id: number; partner_gender?: 'male' | 'female' | null }
   | { couple_id: number; status: 'pending'; pair_code: string }
   | { couple_id: null; status: 'none' }
 export interface ActionBundle {
@@ -44,4 +45,5 @@ export interface ActionBundle {
 export interface FeedResponse {
   events: GameEvent[]
   stats: Stats
+  has_more?: boolean
 }

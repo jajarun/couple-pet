@@ -20,8 +20,9 @@ test('duplicate nickname shows a friendly message', async () => {
       <RegisterScreen />
     </AuthProvider>,
   )
+  await userEvent.click(screen.getByRole('radio', { name: '女生' }))
   await userEvent.type(screen.getByLabelText('昵称'), 'mimi')
   await userEvent.type(screen.getByLabelText('密码'), 'secret1')
-  await userEvent.click(screen.getByRole('button', { name: '注册' }))
+  await userEvent.click(screen.getByRole('button', { name: '开始' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('这名字被抢啦，换一个')
 })

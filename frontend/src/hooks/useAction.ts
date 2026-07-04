@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { postAction } from '../api/actions'
 import { ApiError } from '../api/client'
 import { ActionBundle, Stats } from '../api/types'
-import { FeedData, feedKey, statsKey, mergeEvents } from './useFeed'
+import { FeedData, appendToFeed, feedKey, statsKey } from './useFeed'
 
 export function useAction(coupleId: number) {
   const qc = useQueryClient()
@@ -12,11 +12,7 @@ export function useAction(coupleId: number) {
     retry: (failureCount, error) => failureCount < 2 && !(error instanceof ApiError),
     retryDelay: 200,
     onSuccess: (bundle: ActionBundle) => {
-      qc.setQueryData<FeedData>(feedKey(coupleId), (old) => {
-        const merged = mergeEvents(old?.events ?? [], bundle.events)
-        const cursor = merged.length ? merged[merged.length - 1].id : old?.cursor ?? 0
-        return { events: merged, cursor }
-      })
+      qc.setQueryData<FeedData>(feedKey(coupleId), (old) => appendToFeed(old, bundle.events))
       qc.setQueryData<Stats>(statsKey(coupleId), bundle.stats)
     },
   })

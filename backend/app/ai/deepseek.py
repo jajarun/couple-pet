@@ -8,6 +8,8 @@ from app.config import settings
 def _fallback(persona: dict, action_type: str, content: str) -> str:
     """tone-aware 本地兜底（无 key / 出错时用）。含 persona.tone 与内容回显。"""
     tone = persona.get("tone", "沙雕")
+    if action_type == "nudge":
+        return f"[{tone}分身] 喂——别晾着我啊，人呢？过来陪本尊玩会儿嘛~"
     said = content.strip() if content else ""
     tail = f"「{said}」" if said else ""
     return f"[{tone}分身] 收到你的 {action_type}{tail}，哼，本尊可不吃这套~"

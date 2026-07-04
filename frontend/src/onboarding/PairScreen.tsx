@@ -27,13 +27,19 @@ export function PairScreen({ couple }: { couple: CoupleState }) {
 
   if (couple.status === 'pending') {
     return (
-      <div style={{ padding: 16, textAlign: 'center' }}>
+      <div className="pad stack center" style={{ gap: 14, marginTop: 'auto', marginBottom: 'auto' }}>
+        <div className="brand-mark">📮</div>
         <h2>等对方进门…</h2>
-        <p>把邀请码发给 TA：</p>
-        <div data-testid="pair-code" style={{ fontSize: 32, letterSpacing: 4 }}>
-          {couple.pair_code}
+        <p className="muted tiny">把邀请码发给 TA</p>
+        <div className="card center" style={{ padding: '18px 12px' }}>
+          <div
+            data-testid="pair-code"
+            style={{ fontSize: 34, fontWeight: 800, letterSpacing: 6, color: 'var(--primary-strong)' }}
+          >
+            {couple.pair_code}
+          </div>
         </div>
-        <p>催 TA 一下 👉「就等你了，快输码！」</p>
+        <p className="tiny">催 TA 一下 👉「就等你了，快输码！」</p>
         <LoadingBanter />
       </div>
     )
@@ -46,22 +52,29 @@ export function PairScreen({ couple }: { couple: CoupleState }) {
   }
 
   return (
-    <div style={{ padding: 16, display: 'grid', gap: 16 }}>
-      <div>
+    <div className="pad stack" style={{ gap: 16, marginTop: 'auto', marginBottom: 'auto' }}>
+      <div className="center stack" style={{ gap: 8 }}>
+        <div className="brand-mark">💑</div>
         <h2>开一段关系</h2>
-        <button onClick={() => create.mutate()} disabled={create.isPending}>
+        <p className="muted tiny">和 TA 凑成一对，才能养起分身</p>
+      </div>
+
+      <div className="card stack">
+        <button
+          className="btn-primary btn-lg btn-block"
+          onClick={() => create.mutate()}
+          disabled={create.isPending}
+        >
           创建情侣，拿邀请码
         </button>
       </div>
-      <div>或</div>
-      <form onSubmit={submitJoin} style={{ display: 'grid', gap: 8 }}>
+
+      <div className="center muted tiny">— 或者 —</div>
+
+      <form onSubmit={submitJoin} className="card stack">
         <input aria-label="邀请码" value={code} onChange={(e) => setCode(e.target.value)} placeholder="输入对方邀请码" />
-        {err && (
-          <div role="alert" style={{ color: 'var(--warn)' }}>
-            {err}
-          </div>
-        )}
-        <button type="submit" disabled={join.isPending}>加入</button>
+        {err && <div role="alert" style={{ color: 'var(--warn)' }}>{err}</div>}
+        <button type="submit" className="btn-block" disabled={join.isPending}>加入</button>
       </form>
     </div>
   )

@@ -1,21 +1,7 @@
 import { ReactNode } from 'react'
 
+// The app frame: a centered, phone-width column with a soft gender-tinted wash.
+// (Kept this filename/export so routing stays put; it's no longer a pixel device.)
 export function PixelPanel({ children }: { children: ReactNode }) {
-  return (
-    <div
-      style={{
-        maxWidth: 440,
-        margin: '0 auto',
-        minHeight: '100dvh',
-        background: 'var(--machine)',
-        border: '6px solid #101010',
-        borderRadius: 'var(--radius)',
-        padding: 12,
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      {children}
-    </div>
-  )
+  return <div className="app-shell">{children}</div>
 }

@@ -89,7 +89,13 @@ def my_couple(
     active = get_active_couple(db, user)
     if active is not None:
         partner_id = active.user_b_id if active.user_a_id == user.id else active.user_a_id
-        return {"couple_id": active.id, "status": "active", "partner_id": partner_id}
+        partner = db.get(User, partner_id) if partner_id is not None else None
+        return {
+            "couple_id": active.id,
+            "status": "active",
+            "partner_id": partner_id,
+            "partner_gender": partner.gender if partner else None,
+        }
     pending = (
         db.query(Couple)
         .filter(Couple.status == "pending", Couple.user_a_id == user.id)

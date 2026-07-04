@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-export function SpeechBubble({ text, typing }: { text: string; typing?: boolean }) {
+export function SpeechBubble({ text, typing, fromPet }: { text: string; typing?: boolean; fromPet?: boolean }) {
   const [shown, setShown] = useState(typing ? '' : text)
 
   useEffect(() => {
@@ -18,19 +18,5 @@ export function SpeechBubble({ text, typing }: { text: string; typing?: boolean 
     return () => clearInterval(id)
   }, [text, typing])
 
-  return (
-    <div
-      style={{
-        display: 'inline-block',
-        background: '#fff',
-        color: '#111',
-        border: '3px solid #101010',
-        borderRadius: 10,
-        padding: '8px 12px',
-        maxWidth: '80%',
-      }}
-    >
-      {shown}
-    </div>
-  )
+  return <div className={`speech${fromPet ? ' from-pet' : ''}`}>{shown}</div>
 }

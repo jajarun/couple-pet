@@ -17,7 +17,7 @@ export function StatDashboard({ coupleId }: { coupleId: number }) {
   })
   const s = data ?? DEFAULT_STATS
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
+    <div className="chip-row">
       <StatGauge label="委屈" value={s.grievance} alarm={s.grievance >= GRIEVANCE_ALARM} />
       <StatGauge label="狗粮" value={s.dogfood} />
       <StatGauge label="想你" value={s.miss} />

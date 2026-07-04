@@ -1,3 +1,5 @@
+from typing import Literal, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -13,6 +15,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 class RegisterIn(BaseModel):
     nickname: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=6, max_length=128)
+    gender: Optional[Literal["male", "female"]] = None
 
 
 class LoginIn(BaseModel):
@@ -23,13 +26,16 @@ class LoginIn(BaseModel):
 class UserOut(BaseModel):
     id: int
     nickname: str
+    gender: Optional[str] = None
 
 
 def _token_response(user: User) -> dict:
     return {
         "access_token": create_access_token(sub=str(user.id)),
         "token_type": "bearer",
-        "user": UserOut(id=user.id, nickname=user.nickname).model_dump(),
+        "user": UserOut(
+            id=user.id, nickname=user.nickname, gender=user.gender
+        ).model_dump(),
     }
 
 
@@ -38,7 +44,11 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
     exists = db.query(User).filter(User.nickname == body.nickname).first()
     if exists is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "nickname already taken")
-    user = User(nickname=body.nickname, password_hash=hash_password(body.password))
+    user = User(
+        nickname=body.nickname,
+        password_hash=hash_password(body.password),
+        gender=body.gender,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)

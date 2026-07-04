@@ -12,9 +12,10 @@ import { MainShell } from './shell/MainShell'
 
 function RetryNotice({ onRetry }: { onRetry: () => void }) {
   return (
-    <div style={{ padding: 16, textAlign: 'center' }}>
-      <p>连不上服务器，稍等一下~</p>
-      <button onClick={onRetry}>再试一次</button>
+    <div className="pad center stack" style={{ gap: 12, marginTop: 'auto', marginBottom: 'auto' }}>
+      <div style={{ fontSize: 40 }}>📡</div>
+      <p className="muted">连不上服务器，稍等一下~</p>
+      <button className="btn-primary" onClick={onRetry}>再试一次</button>
     </div>
   )
 }
@@ -33,18 +34,33 @@ function Gate() {
   if (myAvatar.isLoading) return <LoadingBanter />
   if (myAvatar.isError) return <RetryNotice onRetry={() => myAvatar.refetch()} />
   if (!myAvatar.data || myAvatar.data.name === '') return <AvatarCreateScreen />
-  return <MainShell coupleId={couple.data.couple_id} myUserId={user!.id} partnerId={couple.data.partner_id} />
+  return (
+    <MainShell
+      coupleId={couple.data.couple_id}
+      myUserId={user!.id}
+      partnerId={couple.data.partner_id}
+      partnerGender={couple.data.partner_gender}
+    />
+  )
 }
 
 export default function App() {
-  const { user } = useAuth()
+  const { user, phase } = useAuth()
   return (
     <PixelPanel>
-      <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" /> : <LoginScreen />} />
-        <Route path="/register" element={user ? <Navigate to="/" /> : <RegisterScreen />} />
-        <Route path="/*" element={user ? <Gate /> : <Navigate to="/login" />} />
-      </Routes>
+      {phase === 'restoring' ? (
+        <div className="pad center stack" style={{ gap: 12, marginTop: 'auto', marginBottom: 'auto' }}>
+          <div style={{ fontSize: 40 }}>💞</div>
+          <p className="muted">正在帮你自动登录…</p>
+          <LoadingBanter />
+        </div>
+      ) : (
+        <Routes>
+          <Route path="/login" element={user ? <Navigate to="/" /> : <LoginScreen />} />
+          <Route path="/register" element={user ? <Navigate to="/" /> : <RegisterScreen />} />
+          <Route path="/*" element={user ? <Gate /> : <Navigate to="/login" />} />
+        </Routes>
+      )}
     </PixelPanel>
   )
 }

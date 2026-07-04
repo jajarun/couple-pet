@@ -5,11 +5,13 @@ export function PressButton({
   children,
   onPress,
   disabled,
+  className = 'action-btn',
   cooldownMs = 800,
 }: {
   children: ReactNode
   onPress: () => void
   disabled?: boolean
+  className?: string
   cooldownMs?: number
 }) {
   const [cooling, setCooling] = useState(false)
@@ -27,17 +29,10 @@ export function PressButton({
 
   return (
     <motion.button
-      whileTap={{ scale: 0.9 }}
+      whileTap={{ scale: 0.94 }}
       onClick={handle}
       disabled={disabled || cooling}
-      style={{
-        padding: '12px 8px',
-        border: '3px solid #101010',
-        borderRadius: 8,
-        background: disabled || cooling ? '#8a8aa0' : 'var(--panel)',
-        color: 'var(--ink)',
-        boxShadow: cooling ? 'var(--shadow-press)' : 'none',
-      }}
+      className={className}
     >
       {children}
     </motion.button>

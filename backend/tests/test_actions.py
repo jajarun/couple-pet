@@ -127,3 +127,9 @@ def test_content_length_capped(client):
     ha, hb = _pair(client)
     r = _act(client, hb, "chat", "k1", "x" * 1001)
     assert r.status_code == 422
+
+
+def test_local_reactions_are_plentiful_and_unique():
+    for action, lines in LOCAL_REACTIONS.items():
+        assert len(lines) >= 50, f"{action} only has {len(lines)} lines"
+        assert len(set(lines)) == len(lines), f"{action} has duplicate lines"

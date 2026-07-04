@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { respondToEvent } from '../api/events'
 import { ApiError } from '../api/client'
 import { GameEvent } from '../api/types'
-import { FeedData, feedKey, mergeEvents } from './useFeed'
+import { FeedData, appendToFeed, feedKey } from './useFeed'
 
 export function useRespond(coupleId: number) {
   const qc = useQueryClient()
@@ -12,11 +12,7 @@ export function useRespond(coupleId: number) {
     retry: (failureCount, error) => failureCount < 2 && !(error instanceof ApiError),
     retryDelay: 200,
     onSuccess: (ev: GameEvent) => {
-      qc.setQueryData<FeedData>(feedKey(coupleId), (old) => {
-        const merged = mergeEvents(old?.events ?? [], [ev])
-        const cursor = merged.length ? merged[merged.length - 1].id : old?.cursor ?? 0
-        return { events: merged, cursor }
-      })
+      qc.setQueryData<FeedData>(feedKey(coupleId), (old) => appendToFeed(old, [ev]))
     },
   })
 }

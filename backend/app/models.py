@@ -20,6 +20,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     nickname: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    gender: Mapped[str] = mapped_column(String(8), nullable=True)  # 'male' | 'female'
     ai_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     ai_count_date: Mapped[object] = mapped_column(Date, nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)

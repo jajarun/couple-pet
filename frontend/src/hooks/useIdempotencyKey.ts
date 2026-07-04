@@ -1,14 +1,15 @@
 import { useRef } from 'react'
+import { randomId } from '../uuid'
 
 export function useIdempotencyKey() {
   const ref = useRef<string | null>(null)
   return {
     next() {
-      ref.current = crypto.randomUUID()
+      ref.current = randomId()
       return ref.current
     },
     current() {
-      if (!ref.current) ref.current = crypto.randomUUID()
+      if (!ref.current) ref.current = randomId()
       return ref.current
     },
     clear() {

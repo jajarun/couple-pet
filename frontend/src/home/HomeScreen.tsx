@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { StatDashboard } from './StatDashboard'
 import { ActionBar } from './ActionBar'
 import { PetSprite } from '../components/PetSprite'
@@ -7,7 +8,11 @@ import { LoadingBanter } from '../components/LoadingBanter'
 import { useAction } from '../hooks/useAction'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { usePetAvatar } from '../hooks/useAvatar'
-import { GameEvent } from '../api/types'
+import { statsKey, useFeed } from '../hooks/useFeed'
+import { GameEvent, Stats } from '../api/types'
+
+const GRIEVANCE_ALARM = 80
+const DEFAULT_STATS: Stats = { grievance: 0, dogfood: 0, miss: 0, intimacy: 0 }
 
 function reactionText(events: GameEvent[]): string {
   return events.find((e) => e.kind === 'ai_reaction')?.content ?? '（分身没接话，装死中…）'
@@ -16,13 +21,52 @@ function comfortText(events: GameEvent[]): string | null {
   return events.find((e) => e.kind === 'system')?.content ?? null
 }
 
-export function HomeScreen({ coupleId }: { coupleId: number }) {
+export function HomeScreen({ coupleId, partnerId }: { coupleId: number; partnerId?: number }) {
   const pet = usePetAvatar(true)
   const action = useAction(coupleId)
+  const feed = useFeed(coupleId)
   const key = useIdempotencyKey()
   const [reaction, setReaction] = useState<string | null>(null)
   const [bubble, setBubble] = useState<{ text: string; typing: boolean } | null>(null)
   const [comfort, setComfort] = useState<string | null>(null)
+
+  // When TA's avatar nudges us (a new nudge event lands in the feed), pop it into
+  // the pet's speech bubble. Baseline the existing nudges on first load so only
+  // ones that arrive during this session pop.
+  const events = feed.data?.events ?? []
+  const latestNudgeId = events.reduce(
+    (m, e) =>
+      e.kind === 'ai_reaction' && e.action_type === 'nudge' && e.actor_user_id === partnerId && e.id > m
+        ? e.id
+        : m,
+    0,
+  )
+  const nudgeBaseline = useRef<number | null>(null)
+  useEffect(() => {
+    if (!feed.data) return
+    if (nudgeBaseline.current === null) {
+      nudgeBaseline.current = latestNudgeId
+      return
+    }
+    if (latestNudgeId > nudgeBaseline.current && !action.isPending) {
+      nudgeBaseline.current = latestNudgeId
+      const ev = events.find((e) => e.id === latestNudgeId)
+      if (ev) {
+        setComfort(null)
+        setReaction('nudge')
+        setBubble({ text: ev.content, typing: true })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feed.data, latestNudgeId, action.isPending])
+
+  // Read-only mirror of the stats useFeed/useAction write; drives the aura's mood.
+  const { data: stats } = useQuery<Stats>({
+    queryKey: statsKey(coupleId),
+    queryFn: () => DEFAULT_STATS,
+    enabled: false,
+  })
+  const grievanceAlarm = (stats?.grievance ?? DEFAULT_STATS.grievance) >= GRIEVANCE_ALARM
 
   const petCaptured = pet.data && pet.data.name !== ''
   const face = (pet.data?.appearance?.emoji as string) ?? '👾'
@@ -46,36 +90,57 @@ export function HomeScreen({ coupleId }: { coupleId: number }) {
 
   if (pet.isLoading)
     return (
-      <div style={{ padding: 16 }}>
+      <div className="pad">
         <LoadingBanter />
       </div>
     )
   if (!petCaptured)
     return (
-      <div style={{ padding: 16, textAlign: 'center' }}>
-        <div style={{ fontSize: 48 }}>🥚</div>
+      <div className="pad center stack" style={{ gap: 10, marginTop: 'auto', marginBottom: 'auto' }}>
+        <div style={{ fontSize: 56 }}>🥚</div>
         <p>对方分身孵化中…</p>
-        <p>催 TA 一下：「快去捏你自己啊！」</p>
+        <p className="muted tiny">催 TA 一下：「快去捏你自己啊！」</p>
         <LoadingBanter />
       </div>
     )
 
   return (
-    <div style={{ padding: 8, display: 'grid', gap: 12 }}>
-      <StatDashboard coupleId={coupleId} />
-      <div style={{ minHeight: 40, textAlign: 'center' }}>
-        {action.isPending ? <LoadingBanter /> : bubble ? <SpeechBubble text={bubble.text} typing={bubble.typing} /> : null}
-      </div>
-      <div className="screen" style={{ padding: 8 }}>
-        <div style={{ textAlign: 'center' }}>{pet.data?.name || 'TA 的分身'}</div>
-        <PetSprite face={face} reaction={action.isPending ? null : reaction} />
-      </div>
-      {comfort && (
-        <div role="status" style={{ color: 'var(--warn)', textAlign: 'center' }}>
-          {comfort}
+    <div className="screenview">
+      <div className="screenview-body pad stack" style={{ gap: 14 }}>
+        <StatDashboard coupleId={coupleId} />
+
+        <div className="pet-stage">
+          <div className={`aura${grievanceAlarm ? ' alarm' : ''}`} />
+          <button
+            type="button"
+            className="pet-tap"
+            onClick={() => fire('poke')}
+            disabled={action.isPending}
+            aria-label={`戳一戳 ${pet.data?.name || 'TA 的分身'}`}
+          >
+            <PetSprite face={face} reaction={action.isPending ? null : reaction} />
+          </button>
+          <div className="pet-name">{pet.data?.name || 'TA 的分身'}</div>
         </div>
-      )}
-      <ActionBar onAction={fire} disabled={action.isPending} />
+
+        <div className="center" style={{ minHeight: 46, display: 'grid', placeItems: 'center' }}>
+          {action.isPending ? (
+            <LoadingBanter />
+          ) : bubble ? (
+            <SpeechBubble text={bubble.text} typing={bubble.typing} fromPet />
+          ) : null}
+        </div>
+
+        {comfort && (
+          <div role="status" className="center" style={{ color: 'var(--warn)' }}>
+            {comfort}
+          </div>
+        )}
+      </div>
+
+      <div className="screenview-dock">
+        <ActionBar onAction={fire} disabled={action.isPending} />
+      </div>
     </div>
   )
 }
