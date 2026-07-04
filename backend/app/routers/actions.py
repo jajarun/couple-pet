@@ -1,7 +1,7 @@
 import random
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.ai.deepseek import generate_reaction
@@ -24,7 +24,7 @@ _COMFORT_NARRATION = "⚠️ 委屈值爆表啦——TA 在角落画圈圈，快
 
 class ActionIn(BaseModel):
     action_type: str
-    content: str = ""
+    content: str = Field("", max_length=1000)
     client_key: str
 
 
@@ -52,21 +52,41 @@ def _bundle(db: Session, couple_id: int, action_event: Event, stats: dict) -> di
     return {"events": [event_out(e) for e in events], "stats": stats}
 
 
-def _recent_context(db: Session, couple_id: int, n: int) -> list[dict]:
-    """同 couple 最近 n 条事件（排除 system 噪音），升序，映射成 prompt 上下文。"""
-    rows = (
+def _recent_context(db: Session, couple_id: int, user_id: int, n: int) -> list[dict]:
+    """这个饲养者跟这只分身的对话（TA 自己发起的动作 + 其回应子事件），升序，
+    映射成 prompt 上下文。按线程隔离——不混入 couple 里另一只分身的对话。"""
+    actions = (
         db.query(Event)
-        .filter(Event.couple_id == couple_id, Event.kind != "system")
+        .filter(
+            Event.couple_id == couple_id,
+            Event.kind == "action",
+            Event.actor_user_id == user_id,
+        )
         .order_by(Event.id.desc())
         .limit(n)
         .all()
     )
-    out = []
-    for ev in reversed(rows):
-        speaker = "对方" if ev.kind == "action" else "分身"
-        text = ev.content or (f"（{ev.action_type}）" if ev.action_type else "")
-        out.append({"speaker": speaker, "text": text})
-    return out
+    actions = list(reversed(actions))  # ascending
+    if not actions:
+        return []
+    action_ids = [a.id for a in actions]
+    children = (
+        db.query(Event)
+        .filter(Event.parent_event_id.in_(action_ids), Event.kind != "system")
+        .order_by(Event.id)
+        .all()
+    )
+    children_by_parent: dict[int, list] = {}
+    for c in children:
+        children_by_parent.setdefault(c.parent_event_id, []).append(c)
+    out: list[dict] = []
+    for a in actions:
+        out.append(
+            {"speaker": "对方", "text": a.content or (f"（{a.action_type}）" if a.action_type else "")}
+        )
+        for c in children_by_parent.get(a.id, []):
+            out.append({"speaker": "分身", "text": c.content or ""})
+    return out[-n:]  # 限最近 n 轮，控制 prompt 大小
 
 
 @router.post("/actions")
@@ -109,7 +129,7 @@ def do_action(
 
     if needs_ai:
         if ai_quota_available(user, db):
-            recent = _recent_context(db, couple.id, settings.deepseek_recent_context)
+            recent = _recent_context(db, couple.id, user.id, settings.deepseek_recent_context)
             reaction_text, used_ai = generate_reaction(
                 pet.persona, new_stats, body.action_type, body.content, recent, pet.memory_summary
             )

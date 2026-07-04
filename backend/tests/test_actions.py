@@ -102,3 +102,28 @@ def test_ai_failure_does_not_charge(client, monkeypatch):
     assert reaction["content"] == "（分身充电中）"
     assert charged == []  # 失败不烧额度
     assert r.json()["stats"]  # 动作照样成立、数值已结算
+
+
+def test_recent_context_is_thread_scoped(client, monkeypatch):
+    ha, hb = _pair(client)
+    _act(client, ha, "chat", "a1", "ALICE_ONLY")   # alice's own thread
+    _act(client, hb, "chat", "b1", "BOB_FIRST")    # bob's prior thread
+    import app.routers.actions as m
+
+    captured = {}
+
+    def fake_gen(persona, stats, action_type, content, recent, memory_summary=""):
+        captured["recent"] = recent
+        return ("ok", False)
+
+    monkeypatch.setattr(m, "generate_reaction", fake_gen)
+    _act(client, hb, "chat", "b2", "BOB_SECOND")
+    joined = " ".join(t["text"] for t in captured["recent"])
+    assert "BOB_FIRST" in joined       # bob's own prior turn is present
+    assert "ALICE_ONLY" not in joined  # the other avatar's thread must NOT leak in
+
+
+def test_content_length_capped(client):
+    ha, hb = _pair(client)
+    r = _act(client, hb, "chat", "k1", "x" * 1001)
+    assert r.status_code == 422

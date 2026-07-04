@@ -26,5 +26,5 @@ def generate_reaction(
     try:
         messages = build_messages(persona, stats, action_type, content, recent)
         return chat_completion(messages), True
-    except AIError:
+    except Exception:
         return _fallback(persona, action_type, content), False

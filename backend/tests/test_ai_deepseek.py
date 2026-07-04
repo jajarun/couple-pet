@@ -30,3 +30,15 @@ def test_ai_error_falls_back(monkeypatch):
     text, used = generate_reaction({"tone": "高冷"}, LOW, "chat", "在吗", [])
     assert used is False
     assert "高冷" in text
+
+
+def test_non_ai_error_also_falls_back(monkeypatch):
+    monkeypatch.setattr(settings, "deepseek_api_key", "sk-test")
+
+    def boom(messages):
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr("app.ai.deepseek.chat_completion", boom)
+    text, used = generate_reaction({"tone": "毒舌"}, LOW, "chat", "hi", [])
+    assert used is False
+    assert "毒舌" in text
