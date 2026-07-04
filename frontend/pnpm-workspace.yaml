@@ -1,3 +1,6 @@
 allowBuilds:
   esbuild: true
   msw: true
+# node-linker=hoisted in .npmrc is ignored by pnpm 10+; the effective setting lives here.
+# Hoisted (flat, npm-like) node_modules keeps library-derived inferred types portable (avoids TS2742).
+nodeLinker: hoisted
