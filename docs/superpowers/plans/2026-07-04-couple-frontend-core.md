@@ -818,7 +818,7 @@ cd frontend && git add -A && git commit -m "feat(frontend): PressButton (cooldow
 
 `frontend/src/components/SpeechBubble.test.tsx`:
 ```tsx
-import { screen } from '@testing-library/react'
+import { screen, act } from '@testing-library/react'
 import { test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderWithProviders } from '../test/utils'
 import { SpeechBubble } from './SpeechBubble'
@@ -828,7 +828,7 @@ afterEach(() => vi.useRealTimers())
 
 test('typing mode eventually reveals the full text', () => {
   renderWithProviders(<SpeechBubble text="大猪蹄子" typing />)
-  vi.advanceTimersByTime(2000)
+  act(() => { vi.advanceTimersByTime(2000) }) // act-wrapped: flush the typewriter interval's state updates
   expect(screen.getByText('大猪蹄子')).toBeInTheDocument()
 })
 
@@ -840,7 +840,7 @@ test('non-typing mode shows text immediately', () => {
 
 `frontend/src/components/LoadingBanter.test.tsx`:
 ```tsx
-import { screen } from '@testing-library/react'
+import { screen, act } from '@testing-library/react'
 import { test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderWithProviders } from '../test/utils'
 import { LoadingBanter } from './LoadingBanter'
@@ -852,7 +852,7 @@ afterEach(() => vi.useRealTimers())
 test('cycles to a different banter line over time', () => {
   renderWithProviders(<LoadingBanter intervalMs={1200} />)
   const first = screen.getByTestId('banter').textContent
-  vi.advanceTimersByTime(1200)
+  act(() => { vi.advanceTimersByTime(1200) }) // act-wrapped: flush the interval's state update
   const second = screen.getByTestId('banter').textContent
   expect(BANTER_LINES).toContain(second)
   expect(second).not.toBe(first)
