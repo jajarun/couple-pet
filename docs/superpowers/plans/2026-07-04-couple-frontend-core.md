@@ -646,7 +646,7 @@ cd frontend && git add -A && git commit -m "feat(frontend): pixel shell tokens +
 
 `frontend/src/components/PressButton.test.tsx`:
 ```tsx
-import { screen } from '@testing-library/react'
+import { screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderWithProviders } from '../test/utils'
@@ -669,7 +669,7 @@ test('fires onPress then disables during cooldown, re-enables after', async () =
   expect(btn).toBeDisabled()
   await user.click(btn)
   expect(onPress).toHaveBeenCalledTimes(1) // still disabled, no second fire
-  await vi.advanceTimersByTimeAsync(800) // async: flush React 18 batched re-render so re-enable is observed
+  act(() => { vi.advanceTimersByTime(800) }) // act-wrapped: flush the cooldown re-render (pristine, no act warning)
   expect(btn).not.toBeDisabled()
 })
 ```
