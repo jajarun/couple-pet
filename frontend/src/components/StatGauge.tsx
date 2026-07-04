@@ -9,8 +9,8 @@ export function StatGauge({
   value: number
   alarm?: boolean
 }) {
-  const rounded = Math.round(value)
   const clamped = Math.max(0, Math.min(100, value))
+  const rounded = Math.round(clamped)
   return (
     <div data-testid={`gauge-${label}`} data-alarm={alarm ? 'true' : 'false'} style={{ flex: 1 }}>
       <div style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between' }}>
@@ -28,7 +28,7 @@ export function StatGauge({
       <div style={{ height: 8, border: '2px solid #101010', background: '#0003' }}>
         <motion.div
           animate={{ width: `${clamped}%` }}
-          transition={{ duration: 0.4 }}
+          transition={{ duration: 0.25 }}
           style={{ height: '100%', background: alarm ? 'var(--warn)' : 'var(--good)' }}
         />
       </div>
