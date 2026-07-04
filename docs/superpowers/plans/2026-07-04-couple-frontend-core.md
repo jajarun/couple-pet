@@ -356,10 +356,9 @@ test('non-2xx throws ApiError carrying status and detail', async () => {
       HttpResponse.json({ detail: 'bad credentials' }, { status: 401 }),
     ),
   )
-  await expect(apiRequest('POST', '/auth/login', { nickname: 'x' })).rejects.toMatchObject({
-    status: 401,
-    detail: 'bad credentials',
-  })
+  const err = await apiRequest('POST', '/auth/login', { nickname: 'x' }).catch((e) => e)
+  expect(err).toBeInstanceOf(ApiError)
+  expect(err).toMatchObject({ status: 401, detail: 'bad credentials' })
 })
 ```
 
