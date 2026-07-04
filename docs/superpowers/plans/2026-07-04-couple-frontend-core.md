@@ -669,7 +669,7 @@ test('fires onPress then disables during cooldown, re-enables after', async () =
   expect(btn).toBeDisabled()
   await user.click(btn)
   expect(onPress).toHaveBeenCalledTimes(1) // still disabled, no second fire
-  vi.advanceTimersByTime(800)
+  await vi.advanceTimersByTimeAsync(800) // async: flush React 18 batched re-render so re-enable is observed
   expect(btn).not.toBeDisabled()
 })
 ```
