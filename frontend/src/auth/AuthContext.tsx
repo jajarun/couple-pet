@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { setAuthToken } from '../api/client'
+import { setAuthToken, setOnUnauthorized } from '../api/client'
 import { registerUser, loginUser } from '../api/auth'
 import { AuthUser } from '../api/types'
 
@@ -49,6 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null)
     setUser(null)
   }
+
+  useEffect(() => {
+    setOnUnauthorized(logout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <AuthCtx.Provider value={{ user, token, login, register, logout }}>{children}</AuthCtx.Provider>

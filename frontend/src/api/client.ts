@@ -12,6 +12,11 @@ export function setAuthToken(t: string | null) {
   authToken = t
 }
 
+let onUnauthorized: () => void = () => {}
+export function setOnUnauthorized(fn: () => void) {
+  onUnauthorized = fn
+}
+
 export async function apiRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`
@@ -28,6 +33,7 @@ export async function apiRequest<T>(method: string, path: string, body?: unknown
     } catch {
       /* keep statusText */
     }
+    if (res.status === 401 && authToken) onUnauthorized()
     throw new ApiError(res.status, detail)
   }
   if (res.status === 204) return undefined as T

@@ -31,7 +31,7 @@ export function MainShell({ coupleId, myUserId, partnerId }: { coupleId: number;
       <div style={{ flex: 1 }}>
         {tab === 'home' && <HomeScreen coupleId={coupleId} />}
         {tab === 'feed' && <FeedScreen coupleId={coupleId} myUserId={myUserId} partnerId={partnerId} />}
-        {tab === 'chat' && <ChatScreen coupleId={coupleId} />}
+        {tab === 'chat' && <ChatScreen coupleId={coupleId} myUserId={myUserId} />}
         {tab === 'me' && <MyAvatarScreen onLogout={logout} />}
       </div>
       <TabBar tabs={tabs} active={tab} onChange={setTab} />

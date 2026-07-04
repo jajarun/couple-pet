@@ -10,6 +10,15 @@ import { PairScreen } from './onboarding/PairScreen'
 import { AvatarCreateScreen } from './onboarding/AvatarCreateScreen'
 import { MainShell } from './shell/MainShell'
 
+function RetryNotice({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div style={{ padding: 16, textAlign: 'center' }}>
+      <p>连不上服务器，稍等一下~</p>
+      <button onClick={onRetry}>再试一次</button>
+    </div>
+  )
+}
+
 function Gate() {
   const { user } = useAuth()
   const couple = useCouple(!!user)
@@ -17,10 +26,12 @@ function Gate() {
   const myAvatar = useMyAvatar(isActive)
 
   if (couple.isLoading) return <LoadingBanter />
+  if (couple.isError) return <RetryNotice onRetry={() => couple.refetch()} />
   if (!couple.data || couple.data.status === 'none')
     return <PairScreen couple={couple.data ?? { couple_id: null, status: 'none' }} />
   if (couple.data.status === 'pending') return <PairScreen couple={couple.data} />
   if (myAvatar.isLoading) return <LoadingBanter />
+  if (myAvatar.isError) return <RetryNotice onRetry={() => myAvatar.refetch()} />
   if (!myAvatar.data || myAvatar.data.name === '') return <AvatarCreateScreen />
   return <MainShell coupleId={couple.data.couple_id} myUserId={user!.id} partnerId={couple.data.partner_id} />
 }

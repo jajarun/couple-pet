@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { postAction } from '../api/actions'
+import { ApiError } from '../api/client'
 import { ActionBundle, Stats } from '../api/types'
 import { FeedData, feedKey, statsKey, mergeEvents } from './useFeed'
 
@@ -8,6 +9,8 @@ export function useAction(coupleId: number) {
   return useMutation({
     mutationFn: (v: { action_type: string; content: string; client_key: string }) =>
       postAction(v.action_type, v.content, v.client_key),
+    retry: (failureCount, error) => failureCount < 2 && !(error instanceof ApiError),
+    retryDelay: 200,
     onSuccess: (bundle: ActionBundle) => {
       qc.setQueryData<FeedData>(feedKey(coupleId), (old) => {
         const merged = mergeEvents(old?.events ?? [], bundle.events)

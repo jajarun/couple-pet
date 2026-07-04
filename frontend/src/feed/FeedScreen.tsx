@@ -12,6 +12,7 @@ export function FeedScreen({ coupleId, myUserId, partnerId }: { coupleId: number
   const key = useIdempotencyKey()
   const [openFor, setOpenFor] = useState<number | null>(null)
   const [text, setText] = useState('')
+  const [respondErr, setRespondErr] = useState('')
 
   const events = feed.data?.events ?? []
   const hasResponse = (actionId: number) =>
@@ -27,9 +28,18 @@ export function FeedScreen({ coupleId, myUserId, partnerId }: { coupleId: number
     return <div style={{ padding: 16, textAlign: 'center' }}>还没有故事，去戳戳 TA 吧~</div>
 
   const submit = (actionId: number) => {
+    setRespondErr('')
     respond.mutate(
       { eventId: actionId, content: text, client_key: key.next() },
-      { onSuccess: () => { setOpenFor(null); setText(''); key.clear() } },
+      {
+        onSuccess: () => {
+          setOpenFor(null)
+          setText('')
+          setRespondErr('')
+          key.clear()
+        },
+        onError: () => setRespondErr('（没发出去，TA 的分身把它吃了，再试一次~）'),
+      },
     )
   }
 
@@ -47,6 +57,7 @@ export function FeedScreen({ coupleId, myUserId, partnerId }: { coupleId: number
               <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
                 <input aria-label="回应内容" value={text} onChange={(e) => setText(e.target.value)} placeholder="亲自回怼/服软…" />
                 <button onClick={() => submit(ev.id)} disabled={respond.isPending}>发送</button>
+                {respondErr && <div role="alert" style={{ color: 'var(--warn)' }}>{respondErr}</div>}
               </div>
             )}
           </div>
