@@ -4,7 +4,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.ai.deepseek import generate_reaction
 from app.ai.quota import ai_quota_available, record_ai_usage
 from app.config import settings
 from app.db import Base
@@ -18,15 +17,6 @@ def _session():
     )
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine)()
-
-
-def test_generate_reaction_is_deterministic_and_in_persona():
-    persona = {"tone": "毒舌"}
-    a = generate_reaction(persona, {"grievance": 0}, "scold", "大猪蹄子")
-    b = generate_reaction(persona, {"grievance": 0}, "scold", "大猪蹄子")
-    assert a == b  # deterministic — safe for CI
-    assert "毒舌" in a
-    assert "大猪蹄子" in a
 
 
 def test_quota_available_until_cap():

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.deepseek import generate_reaction
 from app.ai.quota import ai_quota_available, record_ai_usage
+from app.config import settings
 from app.db import get_db
 from app.deps import get_active_couple, get_current_user
 from app.models import Avatar, CoupleStats, Event, User
@@ -51,6 +52,23 @@ def _bundle(db: Session, couple_id: int, action_event: Event, stats: dict) -> di
     return {"events": [event_out(e) for e in events], "stats": stats}
 
 
+def _recent_context(db: Session, couple_id: int, n: int) -> list[dict]:
+    """同 couple 最近 n 条事件（排除 system 噪音），升序，映射成 prompt 上下文。"""
+    rows = (
+        db.query(Event)
+        .filter(Event.couple_id == couple_id, Event.kind != "system")
+        .order_by(Event.id.desc())
+        .limit(n)
+        .all()
+    )
+    out = []
+    for ev in reversed(rows):
+        speaker = "对方" if ev.kind == "action" else "分身"
+        text = ev.content or (f"（{ev.action_type}）" if ev.action_type else "")
+        out.append({"speaker": speaker, "text": text})
+    return out
+
+
 @router.post("/actions")
 def do_action(
     body: ActionIn,
@@ -91,10 +109,12 @@ def do_action(
 
     if needs_ai:
         if ai_quota_available(user, db):
-            reaction_text = generate_reaction(
-                pet.persona, new_stats, body.action_type, body.content, pet.memory_summary
+            recent = _recent_context(db, couple.id, settings.deepseek_recent_context)
+            reaction_text, used_ai = generate_reaction(
+                pet.persona, new_stats, body.action_type, body.content, recent, pet.memory_summary
             )
-            record_ai_usage(user, db)
+            if used_ai:
+                record_ai_usage(user, db)
         else:
             reaction_text = random.choice(_AI_FALLBACK)
     else:

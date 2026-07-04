@@ -73,3 +73,32 @@ def test_over_quota_falls_back_to_local(client, monkeypatch):
     assert r.status_code == 200  # never errors on quota exhaustion
     reaction = next(e for e in r.json()["events"] if e["kind"] == "ai_reaction")
     assert reaction["content"]  # a fallback line, not empty
+
+
+def test_ai_success_uses_ai_text_and_charges(client, monkeypatch):
+    ha, hb = _pair(client)
+    import app.routers.actions as m
+
+    charged = []
+    monkeypatch.setattr(m, "generate_reaction", lambda *a, **k: ("哼，本汪偏要理你", True))
+    monkeypatch.setattr(m, "record_ai_usage", lambda user, db: charged.append(1))
+    r = _act(client, hb, "chat", "k1", "在吗")
+    assert r.status_code == 200
+    reaction = next(e for e in r.json()["events"] if e["kind"] == "ai_reaction")
+    assert reaction["content"] == "哼，本汪偏要理你"
+    assert charged == [1]  # 成功才扣，且只扣一次
+
+
+def test_ai_failure_does_not_charge(client, monkeypatch):
+    ha, hb = _pair(client)
+    import app.routers.actions as m
+
+    charged = []
+    monkeypatch.setattr(m, "generate_reaction", lambda *a, **k: ("（分身充电中）", False))
+    monkeypatch.setattr(m, "record_ai_usage", lambda user, db: charged.append(1))
+    r = _act(client, hb, "chat", "k1", "在吗")
+    assert r.status_code == 200
+    reaction = next(e for e in r.json()["events"] if e["kind"] == "ai_reaction")
+    assert reaction["content"] == "（分身充电中）"
+    assert charged == []  # 失败不烧额度
+    assert r.json()["stats"]  # 动作照样成立、数值已结算
