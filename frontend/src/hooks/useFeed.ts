@@ -28,6 +28,7 @@ export function useFeed(coupleId: number | null) {
     enabled: coupleId != null,
     refetchInterval: 3000,
     queryFn: async (): Promise<FeedData> => {
+      if (coupleId == null) return { events: [], cursor: 0 }
       const prev = qc.getQueryData<FeedData>(feedKey(coupleId!))
       const cursor = prev?.cursor ?? 0
       const res = await getEvents(cursor)

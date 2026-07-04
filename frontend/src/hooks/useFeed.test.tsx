@@ -35,4 +35,7 @@ test('useFeed accumulates deltas and advances the cursor', async () => {
   await waitFor(() => expect(result.current.data?.events.map((e) => e.id)).toEqual([1, 2, 3]))
   expect(result.current.data?.cursor).toBe(3)
   expect(qc.getQueryData(statsKey(1))).toMatchObject({ grievance: 12 })
+  await result.current.refetch()
+  await waitFor(() => expect(result.current.data?.events.map((e) => e.id)).toEqual([1, 2, 3]))
+  expect(result.current.data?.cursor).toBe(3)
 })
