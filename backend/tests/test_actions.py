@@ -68,7 +68,7 @@ def test_over_quota_falls_back_to_local(client, monkeypatch):
     ha, hb = _pair(client)
     import app.routers.actions as actions_mod
 
-    monkeypatch.setattr(actions_mod, "consume_ai_quota", lambda user, db: False)
+    monkeypatch.setattr(actions_mod, "ai_quota_available", lambda user, db: False)
     r = _act(client, hb, "scold", "k1", "大猪蹄子")
     assert r.status_code == 200  # never errors on quota exhaustion
     reaction = next(e for e in r.json()["events"] if e["kind"] == "ai_reaction")

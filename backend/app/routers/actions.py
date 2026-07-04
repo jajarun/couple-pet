@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.ai.deepseek import generate_reaction
-from app.ai.quota import consume_ai_quota
+from app.ai.quota import ai_quota_available, record_ai_usage
 from app.db import get_db
 from app.deps import get_active_couple, get_current_user
 from app.models import Avatar, CoupleStats, Event, User
@@ -90,10 +90,11 @@ def do_action(
     new_stats, needs_ai, local_reaction = apply_action(decayed, body.action_type)
 
     if needs_ai:
-        if consume_ai_quota(user, db):
+        if ai_quota_available(user, db):
             reaction_text = generate_reaction(
                 pet.persona, new_stats, body.action_type, body.content, pet.memory_summary
             )
+            record_ai_usage(user, db)
         else:
             reaction_text = random.choice(_AI_FALLBACK)
     else:

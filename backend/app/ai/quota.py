@@ -3,17 +3,19 @@ from app.models import User
 from app.time_utils import utcnow
 
 
-def consume_ai_quota(user: User, db) -> bool:
-    """Reset per UTC day; return False at/over cap, else increment and return True."""
+def ai_quota_available(user: User, db) -> bool:
+    """应用每日重置（跨 UTC 日归零并 commit）；返回是否还在额度内。只查不加。"""
     today = utcnow().date()
     if user.ai_count_date != today:
         user.ai_count = 0
         user.ai_count_date = today
-    if user.ai_count >= settings.daily_chat_cap:
         db.add(user)
         db.commit()
-        return False
+    return user.ai_count < settings.daily_chat_cap
+
+
+def record_ai_usage(user: User, db) -> None:
+    """AI 真成功后计一次数。"""
     user.ai_count += 1
     db.add(user)
     db.commit()
-    return True
