@@ -1,0 +1,23 @@
+:root {
+  --bg: #0f1020;
+  --machine: #6c7cff;
+  --screen: #cde8b4;      /* 复古点阵绿屏 */
+  --screen-ink: #1c2a14;
+  --panel: #2a2c47;
+  --ink: #f4f4ff;
+  --accent: #ff6b9d;      /* 情侣软萌粉 */
+  --warn: #ff5252;
+  --good: #7be0a0;
+  --radius: 10px;
+  --shadow-press: inset 0 3px 0 rgba(0, 0, 0, 0.35);
+  --font-pixel: 'Courier New', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
+  image-rendering: pixelated;
+}
