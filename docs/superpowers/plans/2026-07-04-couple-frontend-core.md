@@ -23,7 +23,7 @@
 - **视觉**：像素电子宠物机主壳 + meme 文案 + 情侣软萌配色；文案全中文。
 - **DeepSeek 现状**：后端是确定性 stub、聊天非流式；前端打字机是客户端逐字揭示（数据源以后无痛替换成流式）。
 - **每个任务走 TDD**：写失败测试 → 跑确认失败 → 最小实现 → 跑确认通过 → 提交。测试用 Vitest + RTL + MSW，**不碰真后端/真 DeepSeek**。
-- **测试命令**：`npx vitest run <file>`（一次性跑，不进 watch）。
+- **包管理器 / 命令**：本环境用 **pnpm**（无 npm/npx）。装依赖 `pnpm install`；跑单个测试文件 `pnpm exec vitest run <file>`（一次性，不进 watch）；跑全量 `pnpm test`；类型检查 `pnpm exec tsc -b`。package.json 的 scripts 用 `pnpm <script>`（如 `pnpm dev`）。
 
 ---
 
@@ -299,11 +299,11 @@ test('renders the app root', () => {
 
 Run:
 ```bash
-cd frontend && npm install
+cd frontend && pnpm install
 ```
 Then:
 ```bash
-cd frontend && npx vitest run src/App.test.tsx
+cd frontend && pnpm exec vitest run src/App.test.tsx
 ```
 Expected: 1 passed.
 
@@ -365,7 +365,7 @@ test('non-2xx throws ApiError carrying status and detail', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd frontend && npx vitest run src/api/client.test.ts`
+Run: `cd frontend && pnpm exec vitest run src/api/client.test.ts`
 Expected: FAIL — cannot find module `./client`.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -462,7 +462,7 @@ export async function apiRequest<T>(method: string, path: string, body?: unknown
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd frontend && npx vitest run src/api/client.test.ts`
+Run: `cd frontend && pnpm exec vitest run src/api/client.test.ts`
 Expected: 2 passed.
 
 - [ ] **Step 5: Commit**
@@ -511,7 +511,7 @@ test('marks the active tab and reports clicks', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd frontend && npx vitest run src/components/TabBar.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/components/TabBar.test.tsx`
 Expected: FAIL — cannot find module `./TabBar`.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -620,7 +620,7 @@ export function TabBar({
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd frontend && npx vitest run src/components/TabBar.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/components/TabBar.test.tsx`
 Expected: 1 passed.
 
 - [ ] **Step 5: Commit**
@@ -691,7 +691,7 @@ test('renders value and alarm flag', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd frontend && npx vitest run src/components/PressButton.test.tsx src/components/StatGauge.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/components/PressButton.test.tsx src/components/StatGauge.test.tsx`
 Expected: FAIL — modules not found.
 
 - [ ] **Step 3: Write minimal implementations**
@@ -790,7 +790,7 @@ export function StatGauge({
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd frontend && npx vitest run src/components/PressButton.test.tsx src/components/StatGauge.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/components/PressButton.test.tsx src/components/StatGauge.test.tsx`
 Expected: all passed.
 
 - [ ] **Step 5: Commit**
@@ -861,7 +861,7 @@ test('cycles to a different banter line over time', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd frontend && npx vitest run src/components/SpeechBubble.test.tsx src/components/LoadingBanter.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/components/SpeechBubble.test.tsx src/components/LoadingBanter.test.tsx`
 Expected: FAIL — modules not found.
 
 - [ ] **Step 3: Write minimal implementations**
@@ -958,7 +958,7 @@ export function PetSprite({ face = '◕‿◕', reaction }: { face?: string; rea
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd frontend && npx vitest run src/components/SpeechBubble.test.tsx src/components/LoadingBanter.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/components/SpeechBubble.test.tsx src/components/LoadingBanter.test.tsx`
 Expected: all passed.
 
 - [ ] **Step 5: Commit**
@@ -1030,7 +1030,7 @@ test('login stores the user and token', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd frontend && npx vitest run src/auth/AuthContext.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/auth/AuthContext.test.tsx`
 Expected: FAIL — cannot find module `./AuthContext`.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1116,7 +1116,7 @@ export function useAuth() {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd frontend && npx vitest run src/auth/AuthContext.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/auth/AuthContext.test.tsx`
 Expected: 1 passed.
 
 - [ ] **Step 5: Commit**
@@ -1203,7 +1203,7 @@ test('duplicate nickname shows a friendly message', async () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd frontend && npx vitest run src/auth/LoginScreen.test.tsx src/auth/RegisterScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/auth/LoginScreen.test.tsx src/auth/RegisterScreen.test.tsx`
 Expected: FAIL — modules not found.
 
 - [ ] **Step 3: Write minimal implementations**
@@ -1308,7 +1308,7 @@ export function RegisterScreen() {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd frontend && npx vitest run src/auth/LoginScreen.test.tsx src/auth/RegisterScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/auth/LoginScreen.test.tsx src/auth/RegisterScreen.test.tsx`
 Expected: all passed.
 
 - [ ] **Step 5: Commit**
@@ -1363,7 +1363,7 @@ test('useCouple fetches the active couple state', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd frontend && npx vitest run src/hooks/useCouple.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/hooks/useCouple.test.tsx`
 Expected: FAIL — cannot find module `./useCouple`.
 
 - [ ] **Step 3: Write minimal implementations**
@@ -1434,7 +1434,7 @@ export function usePetAvatar(enabled: boolean) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd frontend && npx vitest run src/hooks/useCouple.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/hooks/useCouple.test.tsx`
 Expected: 1 passed.
 
 - [ ] **Step 5: Commit**
@@ -1486,7 +1486,7 @@ test('invalid pair code shows a friendly message', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd frontend && npx vitest run src/onboarding/PairScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/onboarding/PairScreen.test.tsx`
 Expected: FAIL — cannot find module `./PairScreen`.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1565,7 +1565,7 @@ export function PairScreen({ couple }: { couple: CoupleState }) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd frontend && npx vitest run src/onboarding/PairScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/onboarding/PairScreen.test.tsx`
 Expected: 2 passed.
 
 - [ ] **Step 5: Commit**
@@ -1620,7 +1620,7 @@ test('submitting captures name/appearance/persona via PUT', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd frontend && npx vitest run src/onboarding/AvatarCreateScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/onboarding/AvatarCreateScreen.test.tsx`
 Expected: FAIL — cannot find module `./AvatarCreateScreen`.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1692,7 +1692,7 @@ export function AvatarCreateScreen() {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd frontend && npx vitest run src/onboarding/AvatarCreateScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/onboarding/AvatarCreateScreen.test.tsx`
 Expected: 1 passed.
 
 - [ ] **Step 5: Commit**
@@ -1779,7 +1779,7 @@ test('current is stable until cleared; next rotates', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd frontend && npx vitest run src/hooks/useFeed.test.tsx src/hooks/useIdempotencyKey.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/hooks/useFeed.test.tsx src/hooks/useIdempotencyKey.test.tsx`
 Expected: FAIL — modules not found.
 
 - [ ] **Step 3: Write minimal implementations**
@@ -1875,7 +1875,7 @@ export function useIdempotencyKey() {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd frontend && npx vitest run src/hooks/useFeed.test.tsx src/hooks/useIdempotencyKey.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/hooks/useFeed.test.tsx src/hooks/useIdempotencyKey.test.tsx`
 Expected: all passed.
 
 - [ ] **Step 5: Commit**
@@ -1945,7 +1945,7 @@ test('shows hatching placeholder when partner has not captured their avatar', as
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd frontend && npx vitest run src/home/HomeScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/home/HomeScreen.test.tsx`
 Expected: FAIL — cannot find module `./HomeScreen`.
 
 - [ ] **Step 3: Write minimal implementations**
@@ -2118,7 +2118,7 @@ export function HomeScreen({ coupleId }: { coupleId: number }) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd frontend && npx vitest run src/home/HomeScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/home/HomeScreen.test.tsx`
 Expected: 2 passed.
 
 - [ ] **Step 5: Commit**
@@ -2180,7 +2180,7 @@ test('offers 本尊附身回应 on the partner action and posts the response', a
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd frontend && npx vitest run src/feed/FeedScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/feed/FeedScreen.test.tsx`
 Expected: FAIL — cannot find module `./FeedScreen`.
 
 - [ ] **Step 3: Write minimal implementations**
@@ -2306,7 +2306,7 @@ export function FeedScreen({ coupleId, myUserId, partnerId }: { coupleId: number
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd frontend && npx vitest run src/feed/FeedScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/feed/FeedScreen.test.tsx`
 Expected: 1 passed.
 
 - [ ] **Step 5: Commit**
@@ -2362,7 +2362,7 @@ test('sending a chat message shows the avatar reply', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd frontend && npx vitest run src/chat/ChatScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/chat/ChatScreen.test.tsx`
 Expected: FAIL — cannot find module `./ChatScreen`.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -2426,7 +2426,7 @@ export function ChatScreen({ coupleId }: { coupleId: number }) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd frontend && npx vitest run src/chat/ChatScreen.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/chat/ChatScreen.test.tsx`
 Expected: 1 passed.
 
 - [ ] **Step 5: Commit**
@@ -2508,7 +2508,7 @@ test('authenticated active couple with a captured avatar lands on home', async (
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd frontend && npx vitest run src/shell/badge.test.ts src/App.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/shell/badge.test.ts src/App.test.tsx`
 Expected: FAIL — `./shell/badge` missing; App still renders the placeholder so the login/home assertions fail.
 
 - [ ] **Step 3: Write minimal implementations**
@@ -2668,7 +2668,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd frontend && npx vitest run src/shell/badge.test.ts src/App.test.tsx`
+Run: `cd frontend && pnpm exec vitest run src/shell/badge.test.ts src/App.test.tsx`
 Expected: all passed.
 
 - [ ] **Step 5: Commit**
@@ -2709,15 +2709,15 @@ VITE_API_BASE=
    ```
 2. 起前端：
    ```bash
-   cd frontend && npm install && npm run dev
+   cd frontend && pnpm install && pnpm dev
    ```
    开发期 Vite 把 `/api/*` 代理到 `http://localhost:8000/*`。
 
 ## 测试
 
 ```bash
-cd frontend && npm test        # vitest 一次性跑
-npx tsc -b                      # 类型检查
+cd frontend && pnpm test         # vitest 一次性跑
+pnpm exec tsc -b                      # 类型检查
 ```
 
 ## 双人真配对试玩
@@ -2747,12 +2747,12 @@ npx tsc -b                      # 类型检查
 
 - [ ] **Step 2: Run the whole suite**
 
-Run: `cd frontend && npx vitest run`
+Run: `cd frontend && pnpm exec vitest run`
 Expected: all test files pass (Tasks 1–15).
 
 - [ ] **Step 3: Typecheck**
 
-Run: `cd frontend && npx tsc -b`
+Run: `cd frontend && pnpm exec tsc -b`
 Expected: no errors.
 
 - [ ] **Step 4: Commit**
