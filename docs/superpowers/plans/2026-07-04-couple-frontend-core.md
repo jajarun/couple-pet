@@ -1758,6 +1758,10 @@ test('useFeed accumulates deltas and advances the cursor', async () => {
   await waitFor(() => expect(result.current.data?.events.map((e) => e.id)).toEqual([1, 2, 3]))
   expect(result.current.data?.cursor).toBe(3)
   expect(qc.getQueryData(statsKey(1))).toMatchObject({ grievance: 12 })
+  // third poll returns no new events → cursor + events stay stable (never reset to 0)
+  await result.current.refetch()
+  await waitFor(() => expect(result.current.data?.events.map((e) => e.id)).toEqual([1, 2, 3]))
+  expect(result.current.data?.cursor).toBe(3)
 })
 ```
 
@@ -1840,6 +1844,7 @@ export function useFeed(coupleId: number | null) {
     enabled: coupleId != null,
     refetchInterval: 3000,
     queryFn: async (): Promise<FeedData> => {
+      if (coupleId == null) return { events: [], cursor: 0 } // guard: refetch() bypasses `enabled`
       const prev = qc.getQueryData<FeedData>(feedKey(coupleId!))
       const cursor = prev?.cursor ?? 0
       const res = await getEvents(cursor)
