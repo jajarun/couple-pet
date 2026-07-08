@@ -16,4 +16,4 @@ until python -c "import app.models; from app.db import Base, engine; Base.metada
 done
 echo "✔ 表已就绪"
 
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+exec uvicorn app.main:app --host 0.0.0.0 --port "${APP_PORT:-8000}"

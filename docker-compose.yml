@@ -34,8 +34,14 @@ services:
         # 国内构建可在 .env 填 PIP_INDEX_URL（清华/阿里镜像）给 pip 提速；留空 = 官方 pypi
         PIP_INDEX_URL: ${PIP_INDEX_URL:-}
     restart: unless-stopped
+    # host 网络：某些云 ECS 的桥接容器出不了公网（VPC 特性），后端要发 Web Push / 调 DeepSeek 必须走 host 网络。
+    # 代价：① 不再用 docker 网络名 db 连库，改连 db 发布到宿主的端口 DB_PORT；
+    #      ② uvicorn 直接绑宿主端口 APP_PORT（宿主 nginx 反代到这里，注意别和别的服务撞端口）。
+    network_mode: host
     environment:
-      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-petgame}:${MYSQL_PASSWORD:-petgame}@db:3306/${MYSQL_DATABASE:-petgame}?charset=utf8mb4
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-petgame}:${MYSQL_PASSWORD:-petgame}@127.0.0.1:${DB_PORT:-3306}/${MYSQL_DATABASE:-petgame}?charset=utf8mb4
+      # host 网络下 uvicorn 监听的宿主端口（= 宿主 nginx 反代目标）；沿用 BACKEND_PORT
+      APP_PORT: ${BACKEND_PORT:-8000}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
       DAILY_CHAT_CAP: ${DAILY_CHAT_CAP:-50}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
@@ -49,10 +55,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${BACKEND_PORT:-8000}/health')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -61,7 +65,9 @@ services:
   # ---------- nginx：静态前端 + /api 反代 ----------
   # 放进 "web" profile：默认不起。仅 `docker compose --profile web up` 时才拉。
   # 生产若已有自己的 nginx（托管前端 dist + 反代 /api + 挂 HTTPS 证书），就别带这个 profile，
-  # 只跑 db + backend 并对外暴露 ${BACKEND_PORT} 让宿主 nginx 反代即可。
+  # 只跑 db + backend 让宿主 nginx 反代 127.0.0.1:${BACKEND_PORT} 即可。
+  # 注意：backend 现在是 host 网络，此 web 容器里的 nginx.conf 用的 `backend:8000` 反代已失效，
+  #      要用自带 nginx 得改成反代 host 网关上的 ${BACKEND_PORT}——生产用宿主 nginx，一般不碰这个。
   web:
     image: nginx:1.27-alpine
     profiles: ["web"]
