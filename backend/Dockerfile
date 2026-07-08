@@ -1,4 +1,6 @@
-FROM python:3.13-slim
+# 基础镜像 tag 可覆盖：默认 3.13-slim；国内/离线机器可传本地已缓存的 tag（如 3.12-slim）避免拉 Docker Hub
+ARG PYTHON_TAG=3.13-slim
+FROM python:${PYTHON_TAG}
 
 WORKDIR /app
 

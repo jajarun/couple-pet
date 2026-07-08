@@ -26,8 +26,12 @@ services:
   backend:
     build:
       context: ./backend
-      # 国内构建可在 .env 填 PIP_INDEX_URL（清华/阿里镜像）给 pip 提速；留空 = 官方 pypi
+      # 构建网络：桥接容器出网受限的机器（如某些国内云 ECS）用 host 网络，RUN pip 才连得上
+      network: host
       args:
+        # PYTHON_TAG 可指向本地已缓存 tag（如 3.12-slim）避免拉 Docker Hub；默认 3.13-slim
+        PYTHON_TAG: ${PYTHON_TAG:-3.13-slim}
+        # 国内构建可在 .env 填 PIP_INDEX_URL（清华/阿里镜像）给 pip 提速；留空 = 官方 pypi
         PIP_INDEX_URL: ${PIP_INDEX_URL:-}
     restart: unless-stopped
     environment:
