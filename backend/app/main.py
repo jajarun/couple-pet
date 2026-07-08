@@ -32,8 +32,23 @@ async def lifespan(app: FastAPI):
                 CronTrigger(hour=utc_hour, minute=0),
                 id="remind_dying_streaks",
             )
+            # 每日一问催答：daily_reminder_hours（UTC+8）各换算成 UTC 触发一次。
+            daily_utc_hours = [
+                (h - settings.streak_utc_offset_hours) % 24
+                for h in settings.daily_reminder_hour_list
+            ]
+            for h in daily_utc_hours:
+                scheduler.add_job(
+                    push_scheduler.remind_unanswered_daily,
+                    CronTrigger(hour=h, minute=0),
+                    id=f"remind_daily_{h}",
+                )
             scheduler.start()
-            logger.info("streak reminder scheduler started (UTC hour=%s)", utc_hour)
+            logger.info(
+                "reminder scheduler started (streak UTC hour=%s, daily UTC hours=%s)",
+                utc_hour,
+                daily_utc_hours,
+            )
         except Exception as e:  # scheduler 起不来不该拖垮整个后端
             logger.warning("failed to start scheduler: %s", e)
             scheduler = None

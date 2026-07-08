@@ -4,6 +4,7 @@
 from datetime import date
 
 import app.push_scheduler as sched
+import app.routers.daily as daily_router
 import app.streak_service as ss
 from tests.conftest import auth_headers
 
@@ -18,6 +19,12 @@ def _pair(client):
 
 def _poke(client, headers, key):
     client.post("/actions", headers=headers, json={"action_type": "poke", "content": "", "client_key": key})
+
+
+def _answer_daily(client, headers, key):
+    r = client.post("/daily/answer", headers=headers, json={"content": "随便答两句", "client_key": key})
+    assert r.status_code == 200
+    return r
 
 
 def test_reminds_only_lagging_user(client, monkeypatch):
@@ -65,6 +72,46 @@ def test_reminds_both_when_rescuable(client, monkeypatch):
     sched.remind_dying_streaks()
     assert sorted(u for u, _ in sent) == [1, 2]  # 可救时提醒双方
     assert all(p["tag"] == "streak" for _, p in sent)
+
+
+def _fix_day(monkeypatch, d):
+    """把每日一问的「今天」与 scheduler 的「今天」钉在同一天，避免跨零点抖动。"""
+    monkeypatch.setattr(daily_router, "_today", lambda: d)
+    monkeypatch.setattr(sched, "_today", lambda: d)
+
+
+def test_daily_nudge_reminds_both_when_neither_answered(client, monkeypatch):
+    ha, hb = _pair(client)
+    _fix_day(monkeypatch, date(2026, 7, 8))  # 谁都没答，连题都还没生成
+
+    sent = []
+    monkeypatch.setattr(sched.push_service, "send_to_user", lambda uid, p: sent.append((uid, p)))
+    sched.remind_unanswered_daily()
+    assert sorted(u for u, _ in sent) == [1, 2]  # 两人都催
+    assert all(p["tag"] == "daily" for _, p in sent)
+
+
+def test_daily_nudge_reminds_only_the_one_who_hasnt(client, monkeypatch):
+    ha, hb = _pair(client)
+    _fix_day(monkeypatch, date(2026, 7, 8))
+    _answer_daily(client, ha, "a1")  # alice 答了，bob 没
+
+    sent = []
+    monkeypatch.setattr(sched.push_service, "send_to_user", lambda uid, p: sent.append((uid, p)))
+    sched.remind_unanswered_daily()
+    assert [u for u, _ in sent] == [2]  # 只催没答的 bob
+
+
+def test_daily_nudge_silent_when_both_answered(client, monkeypatch):
+    ha, hb = _pair(client)
+    _fix_day(monkeypatch, date(2026, 7, 8))
+    _answer_daily(client, ha, "a1")
+    _answer_daily(client, hb, "b1")  # 双方都答了 → 不催
+
+    sent = []
+    monkeypatch.setattr(sched.push_service, "send_to_user", lambda uid, p: sent.append((uid, p)))
+    sched.remind_unanswered_daily()
+    assert sent == []
 
 
 def test_no_remind_for_long_dead_streak(client, monkeypatch):

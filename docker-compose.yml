@@ -52,6 +52,7 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:leosmith16879@gmail.com}
       STREAK_REMINDER_HOUR: ${STREAK_REMINDER_HOUR:-20}
+      DAILY_REMINDER_HOURS: ${DAILY_REMINDER_HOURS:-10,14}
     depends_on:
       db:
         condition: service_healthy

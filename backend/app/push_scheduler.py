@@ -9,7 +9,7 @@ import logging
 from app import push_service, streak_service
 from app.config import settings
 from app.db import SessionLocal
-from app.models import Couple, CoupleStreak
+from app.models import Couple, CoupleStreak, DailyAnswer, DailyQuestion
 from app.rules import streak
 from app.time_utils import utcnow
 
@@ -69,5 +69,49 @@ def remind_dying_streaks() -> None:
                     push_service.send_to_user(uid, payload)
     except Exception as e:
         logger.warning("remind_dying_streaks crashed: %s", e)
+    finally:
+        db.close()
+
+
+_DAILY_NUDGE = {
+    "title": "📩 今天的每日一问还没答",
+    "body": "今天那道每日一问还等着你俩呢，去答一下、解锁彼此的答案 👀",
+    "url": "/",
+    "tag": "daily",
+}
+
+
+def _daily_unanswered_targets(db, couple, today) -> list[int]:
+    """返回今天还没答每日一问、该被催的 user_id 列表。两人都答完 → []。
+    今天还没生成题（谁都没打开）→ 视作两人都没答。"""
+    q = (
+        db.query(DailyQuestion)
+        .filter(DailyQuestion.couple_id == couple.id, DailyQuestion.day == today)
+        .first()
+    )
+    answered: set[int] = set()
+    if q is not None:
+        answered = {
+            a.user_id
+            for a in db.query(DailyAnswer).filter(DailyAnswer.question_id == q.id).all()
+        }
+    return [
+        uid
+        for uid in (couple.user_a_id, couple.user_b_id)
+        if uid is not None and uid not in answered
+    ]
+
+
+def remind_unanswered_daily() -> None:
+    """扫所有活跃情侣，给今天还没答每日一问的人各推一条催答（早/午各触发一次）。"""
+    db = SessionLocal()
+    try:
+        today = _today()
+        couples = db.query(Couple).filter(Couple.status == "active").all()
+        for couple in couples:
+            for uid in _daily_unanswered_targets(db, couple, today):
+                push_service.send_to_user(uid, _DAILY_NUDGE)
+    except Exception as e:
+        logger.warning("remind_unanswered_daily crashed: %s", e)
     finally:
         db.close()

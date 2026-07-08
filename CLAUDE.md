@@ -57,7 +57,7 @@ cp .env.example .env     # 可选：改端口/密码/填 DEEPSEEK_API_KEY
 2. **`app/streak_service.py`（及 router 内的编排段）— DB 编排**：行 ↔ 纯函数 state 的转换、落里程碑事件等。**关键：service 层不 commit**（注释「事务由 router 掌管」），只 `flush`。
 3. **`app/routers/*.py` — HTTP + 事务边界**：唯一 `db.commit()` 的地方；并发首建（同一对同一天/同一 client_key 几乎同时到）会撞唯一约束，路由统一 `except IntegrityError → rollback → 重试一次`（见 `daily.py` 的 `_run()`）。
 
-注册的路由（`app/main.py`，无前缀者路径即函数上写的）：`auth`、`couples`、`avatars`、`actions`、`events`、`daily`、`push`，外加 `/health`。**无 Alembic**——启动时 `Base.metadata.create_all(engine)` 幂等建表（`docker-entrypoint.sh` / 应用启动）。`main.py` 有 `lifespan`：仅当配了 VAPID 私钥时起 APScheduler 跑火苗定时提醒——**跑在 uvicorn 进程内、依赖单 worker**（改多 worker 会重复触发）。
+注册的路由（`app/main.py`，无前缀者路径即函数上写的）：`auth`、`couples`、`avatars`、`actions`、`events`、`daily`、`push`，外加 `/health`。**无 Alembic**——启动时 `Base.metadata.create_all(engine)` 幂等建表（`docker-entrypoint.sh` / 应用启动）。`main.py` 有 `lifespan`：仅当配了 VAPID 私钥时起 APScheduler 跑定时提醒（火苗每天 1 次 + 每日一问催答每天 N 次，见下）——**跑在 uvicorn 进程内、依赖单 worker**（改多 worker 会重复触发）。
 
 ### 数据模型（`app/models.py`）
 
@@ -87,7 +87,7 @@ cp .env.example .env     # 可选：改端口/密码/填 DEEPSEEK_API_KEY
 **契约同 AI：无 VAPID 私钥 = 整套静默关闭、绝不因推送失败而影响主流程、永不抛。** 分两类：
 
 - **实时推送**：挂在现有路由 `db.commit()` 之后，用 FastAPI `BackgroundTasks` 异步发（不阻塞响应）。挂点：`actions.py`(对方发动作 / 委屈爆表)、`events.py`(本尊回应)、`daily.py`(每日一问首答催对方)。**partner_id 必须在 commit 前从 couple 取成 int**（`push_service.partner_of`），别把 ORM 对象丢进后台任务。
-- **定时推送**：`push_scheduler.remind_dying_streaks()` 每天单次触发（`main.py` lifespan 的 APScheduler），扫活跃情侣的火苗，给「今晚会灭 / 已断可救」的人发；模块级 `_today()` 供测试注入。
+- **定时推送**：`push_scheduler` 里两个 job，都自开 `SessionLocal()`、扫活跃情侣、模块级 `_today()` 供测试注入。① `remind_dying_streaks()` 每天单次触发（`streak_reminder_hour`），给火苗「今晚会灭 / 已断可救」的人发；② `remind_unanswered_daily()` 每天触发多次（`daily_reminder_hours`，默认 UTC+8 的 10 点/14 点各一次），给当天还没答每日一问的人发催答（题还没生成也算没答；`tag:"daily"` 和实时那条同 tag 会折叠）。
 - `push_service.send_to_user(user_id, payload)`：核心发送原语，**自开 `SessionLocal()`**（不走请求作用域，供后台任务/定时 job 复用），逐条 `pywebpush.webpush`，404/410 删失效订阅。payload=`{title,body,url,tag}`，`tag` 让 SW 折叠同类通知。
 - **VAPID 密钥**：`app/gen_vapid.py` 生成（`python -m app.gen_vapid`），公钥走 `GET /push/public-key` 下发前端、私钥只在服务端；`config.py` 里空 key = 关闭（同 `deepseek_api_key`）。
 - 前端：`public/sw.js`(手写最小 SW，只处理 push/notificationclick，前台聚焦时抑制)、`main.tsx` 注册、`hooks/usePush.ts`(开关逻辑 + `ensurePushSubscribed` 静默补订)、开关 UI 在「⚙️我」页签。**iOS 需装到主屏幕、需 HTTPS**。

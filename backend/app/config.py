@@ -23,6 +23,22 @@ class Settings(BaseSettings):
     vapid_private_key: str = ""  # 只在服务端，前端永不可见
     vapid_subject: str = "mailto:leosmith16879@gmail.com"
     streak_reminder_hour: int = 20  # 每天几点（火苗日界时区，UTC+8）扫一次将熄的火苗并提醒
+    # 每日一问催答时刻（火苗日界时区 UTC+8）：逗号分隔多个整点；留空 = 关闭该催答。
+    daily_reminder_hours: str = "10,14"
+
+    @property
+    def daily_reminder_hour_list(self) -> list[int]:
+        """把 daily_reminder_hours 解析成去重、排序的整点列表（无效项忽略）。"""
+        out: set[int] = set()
+        for part in self.daily_reminder_hours.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                out.add(int(part) % 24)
+            except ValueError:
+                continue
+        return sorted(out)
 
 
 settings = Settings()
