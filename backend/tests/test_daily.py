@@ -125,3 +125,35 @@ def test_rescue_rejected_when_not_broken(client):
     client.get("/daily", headers=ha)
     r = client.post("/streak/rescue", headers=ha)
     assert r.status_code == 409          # 火苗没断，没得救
+
+
+def test_answer_rejects_empty_content(client):
+    ha, hb = _pair(client)
+    client.get("/daily", headers=ha)                 # 生成题
+    r = client.post("/daily/answer", headers=ha, json={"content": "", "client_key": "x"})
+    assert r.status_code == 422                       # 空答案不许解锁
+
+
+def test_answer_recovers_from_concurrent_insert_conflict(client, monkeypatch):
+    # 和 GET 那条一样的道理，只是发生在答题这条路上：两边几乎同时首次拉题触发的插入
+    # 冲突，也可能撞到答题接口自己身上。回答请求内部第一次遇到 IntegrityError 时，
+    # 路由应 rollback 后重试一次并成功返回 200，而不是让 500 冒出去。
+    ha, hb = _pair(client)
+    client.get("/daily", headers=ha)                 # 先把题生成好，别和取题自身的重试路径搅在一起
+
+    real_get_or_create_question = daily_module._get_or_create_question
+    calls = {"n": 0}
+
+    def flaky_get_or_create_question(db, couple):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise IntegrityError("stmt", {}, Exception("orig"))
+        return real_get_or_create_question(db, couple)
+
+    monkeypatch.setattr(daily_module, "_get_or_create_question", flaky_get_or_create_question)
+
+    r = client.post("/daily/answer", headers=ha, json={"content": "答案", "client_key": "a1"})
+    assert r.status_code == 200                       # 没有 500 冒出去
+    body = r.json()
+    assert body["my_answer"] == "答案"                 # 重试后答案确实写进去了
+    assert calls["n"] == 2                             # 确实撞车了一次、重试了一次

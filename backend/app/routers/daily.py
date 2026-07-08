@@ -17,7 +17,7 @@ router = APIRouter(tags=["daily"])
 
 
 class AnswerIn(BaseModel):
-    content: str = Field("", max_length=1000)
+    content: str = Field(..., min_length=1, max_length=1000)
     client_key: str
 
 
