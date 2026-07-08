@@ -45,6 +45,16 @@ export function ChatScreen({
   const endRef = useAutoScrollBottom(events.length + (action.isPending ? 1 : 0))
   const byId = new Map(events.map((e) => [e.id, e]))
 
+  // daily_qa：答案子事件按父题 id 归组，父题出卡时并入渲染
+  const qaChildren = new Map<number, GameEvent[]>()
+  for (const e of events) {
+    if (e.kind === 'daily_qa' && e.parent_event_id != null) {
+      const arr = qaChildren.get(e.parent_event_id) ?? []
+      arr.push(e)
+      qaChildren.set(e.parent_event_id, arr)
+    }
+  }
+
   // 向上滑动懒加载更早的消息
   const { loadOlder, loadingOlder } = useLoadOlder(coupleId)
   const hasMore = feed.data?.hasMore ?? false
@@ -96,6 +106,22 @@ export function ChatScreen({
   )
 
   const renderEvent = (ev: GameEvent) => {
+    if (ev.kind === 'daily_qa') {
+      if (ev.parent_event_id != null) return null // 子答案并入父卡渲染
+      const answers = qaChildren.get(ev.id) ?? []
+      return (
+        <div key={ev.id} className="qa-card">
+          <div className="qa-title">📮 今日一问</div>
+          <div className="qa-q">{ev.content}</div>
+          {answers.map((a) => (
+            <div key={a.id} className={`qa-a ${a.actor_user_id === myUserId ? 'mine' : 'partner'}`}>
+              {a.content}
+            </div>
+          ))}
+        </div>
+      )
+    }
+
     if (ev.kind === 'system')
       return (
         <div key={ev.id} className="tip warn" role="note">
