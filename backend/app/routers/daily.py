@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import streak_service
@@ -78,10 +79,20 @@ def get_daily(db: Session = Depends(get_db), user: User = Depends(get_current_us
     couple = get_active_couple(db, user)
     if couple is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "no active couple")
-    q = _get_or_create_question(db, couple)
-    resp = _build_response(db, couple, user, q)
-    db.commit()  # 可能新建了题 / streak 行
-    return resp
+
+    def _run():
+        q = _get_or_create_question(db, couple)
+        resp = _build_response(db, couple, user, q)
+        db.commit()  # 可能新建了题 / streak 行
+        return resp
+
+    try:
+        return _run()
+    except IntegrityError:
+        # 双方几乎同时首次拉题：都判断"今日无题"→都插入→撞 uq_daily_questions_couple_day。
+        # 回滚后重试一次：对方已提交的题行此时可见，_get_or_create_question 会直接查到它，不再插入。
+        db.rollback()
+        return _run()
 
 
 @router.post("/daily/answer")
@@ -93,45 +104,56 @@ def answer_daily(
     couple = get_active_couple(db, user)
     if couple is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "no active couple")
-    q = _get_or_create_question(db, couple)
 
-    existing = _answer_of(db, q.id, user.id)
-    if existing is not None:
-        resp = _build_response(db, couple, user, q)   # 幂等：首答锁定
+    def _run():
+        q = _get_or_create_question(db, couple)
+
+        existing = _answer_of(db, q.id, user.id)
+        if existing is not None:
+            resp = _build_response(db, couple, user, q)   # 幂等：首答锁定
+            db.commit()
+            return resp
+
+        db.add(
+            DailyAnswer(
+                question_id=q.id, user_id=user.id, content=body.content, client_key=body.client_key
+            )
+        )
+        db.flush()
+        streak_service.do_touch(db, couple, user.id)      # 答题算有效互动
+
+        # 若这是第二个答的人 → 双方齐了 → 落 daily_qa 时间线（只落一次）
+        answers = db.query(DailyAnswer).filter(DailyAnswer.question_id == q.id).all()
+        if len(answers) == 2:
+            parent = Event(
+                couple_id=couple.id,
+                actor_user_id=None,
+                kind="daily_qa",
+                content=q.question,
+                parent_event_id=None,
+            )
+            db.add(parent)
+            db.flush()
+            for a in answers:
+                db.add(
+                    Event(
+                        couple_id=couple.id,
+                        actor_user_id=a.user_id,
+                        kind="daily_qa",
+                        content=a.content,
+                        parent_event_id=parent.id,
+                    )
+                )
+
+        resp = _build_response(db, couple, user, q)
         db.commit()
         return resp
 
-    db.add(
-        DailyAnswer(
-            question_id=q.id, user_id=user.id, content=body.content, client_key=body.client_key
-        )
-    )
-    db.flush()
-    streak_service.do_touch(db, couple, user.id)      # 答题算有效互动
-
-    # 若这是第二个答的人 → 双方齐了 → 落 daily_qa 时间线（只落一次）
-    answers = db.query(DailyAnswer).filter(DailyAnswer.question_id == q.id).all()
-    if len(answers) == 2:
-        parent = Event(
-            couple_id=couple.id,
-            actor_user_id=None,
-            kind="daily_qa",
-            content=q.question,
-            parent_event_id=None,
-        )
-        db.add(parent)
-        db.flush()
-        for a in answers:
-            db.add(
-                Event(
-                    couple_id=couple.id,
-                    actor_user_id=a.user_id,
-                    kind="daily_qa",
-                    content=a.content,
-                    parent_event_id=parent.id,
-                )
-            )
-
-    resp = _build_response(db, couple, user, q)
-    db.commit()
-    return resp
+    try:
+        return _run()
+    except IntegrityError:
+        # 并发撞车：可能是首建题撞 uq_daily_questions_couple_day，也可能是重复答题
+        # 撞 uq_daily_answers_question_user（同一 client_key 的重放请求几乎同时到达）。
+        # 回滚后重试一次：题/答案此时都已可见，会分别走"直接查到"和"existing 幂等"分支。
+        db.rollback()
+        return _run()

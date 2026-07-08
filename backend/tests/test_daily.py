@@ -1,3 +1,6 @@
+from sqlalchemy.exc import IntegrityError
+
+import app.routers.daily as daily_module
 from tests.conftest import auth_headers
 
 
@@ -92,3 +95,26 @@ def test_actions_also_bump_streak(client):
 def test_requires_active_couple(client):
     h = auth_headers(client, "solo")
     assert client.get("/daily", headers=h).status_code == 409
+
+
+def test_get_daily_recovers_from_concurrent_insert_conflict(client, monkeypatch):
+    # 模拟双方几乎同时首次拉题：第一次撞唯一约束抛 IntegrityError，
+    # 路由应 rollback 后重试一次并成功返回 200，而不是让 500 冒出去。
+    ha, hb = _pair(client)
+
+    real_get_or_create_question = daily_module._get_or_create_question
+    calls = {"n": 0}
+
+    def flaky_get_or_create_question(db, couple):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise IntegrityError("stmt", {}, Exception("orig"))
+        return real_get_or_create_question(db, couple)
+
+    monkeypatch.setattr(daily_module, "_get_or_create_question", flaky_get_or_create_question)
+
+    r = client.get("/daily", headers=ha)
+    assert r.status_code == 200                     # 没有 500 冒出去
+    body = r.json()
+    assert body["question"]["text"]                 # 重试后正常拿到题
+    assert calls["n"] == 2                           # 确实撞车了一次、重试了一次
