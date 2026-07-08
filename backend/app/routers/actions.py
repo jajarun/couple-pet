@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app import streak_service
 from app.ai.deepseek import generate_reaction
 from app.ai.quota import ai_quota_available, record_ai_usage
 from app.config import settings
@@ -176,6 +177,7 @@ def do_action(
             )
         )
 
+    streak_service.do_touch(db, couple, user.id)
     db.commit()
     db.refresh(action_event)
     return _bundle(db, couple.id, action_event, new_stats)
