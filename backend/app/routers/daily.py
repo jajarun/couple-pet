@@ -1,0 +1,137 @@
+"""每日一问：每对每天一道混味题；双方都答完才解锁对方答案，解锁时落 daily_qa 时间线。"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from app import streak_service
+from app.config import settings
+from app.db import get_db
+from app.deps import get_active_couple, get_current_user
+from app.models import Couple, DailyAnswer, DailyQuestion, Event, User
+from app.rules import daily_questions, streak
+from app.time_utils import utcnow
+
+router = APIRouter(tags=["daily"])
+
+
+class AnswerIn(BaseModel):
+    content: str = Field("", max_length=1000)
+    client_key: str
+
+
+def _today():
+    return streak.today_for(utcnow(), settings.streak_utc_offset_hours)
+
+
+def _get_or_create_question(db: Session, couple: Couple) -> DailyQuestion:
+    today = _today()
+    q = (
+        db.query(DailyQuestion)
+        .filter(DailyQuestion.couple_id == couple.id, DailyQuestion.day == today)
+        .first()
+    )
+    if q is not None:
+        return q
+    # 按天定味 + 避开最近若干天的题，避免短期重复
+    seed = today.toordinal() + couple.id
+    flavor = daily_questions.choose_flavor(seed)
+    recent = {
+        r.question
+        for r in db.query(DailyQuestion)
+        .filter(DailyQuestion.couple_id == couple.id)
+        .order_by(DailyQuestion.day.desc())
+        .limit(20)
+        .all()
+    }
+    text = daily_questions.pick_local(flavor, recent, seed)
+    q = DailyQuestion(couple_id=couple.id, day=today, question=text, flavor=flavor)
+    db.add(q)
+    db.flush()
+    return q
+
+
+def _answer_of(db: Session, question_id: int, user_id: int) -> DailyAnswer | None:
+    return (
+        db.query(DailyAnswer)
+        .filter(DailyAnswer.question_id == question_id, DailyAnswer.user_id == user_id)
+        .first()
+    )
+
+
+def _build_response(db: Session, couple: Couple, user: User, q: DailyQuestion) -> dict:
+    partner_id = couple.user_b_id if couple.user_a_id == user.id else couple.user_a_id
+    mine = _answer_of(db, q.id, user.id)
+    partner = _answer_of(db, q.id, partner_id) if partner_id is not None else None
+    both = mine is not None and partner is not None
+    return {
+        "question": {"text": q.question, "flavor": q.flavor},
+        "my_answer": mine.content if mine else None,
+        "partner_answer": partner.content if (both and partner) else None,
+        "both_answered": both,
+        "streak": streak_service.build_view(db, couple, user.id),
+    }
+
+
+@router.get("/daily")
+def get_daily(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    couple = get_active_couple(db, user)
+    if couple is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "no active couple")
+    q = _get_or_create_question(db, couple)
+    resp = _build_response(db, couple, user, q)
+    db.commit()  # 可能新建了题 / streak 行
+    return resp
+
+
+@router.post("/daily/answer")
+def answer_daily(
+    body: AnswerIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    couple = get_active_couple(db, user)
+    if couple is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "no active couple")
+    q = _get_or_create_question(db, couple)
+
+    existing = _answer_of(db, q.id, user.id)
+    if existing is not None:
+        resp = _build_response(db, couple, user, q)   # 幂等：首答锁定
+        db.commit()
+        return resp
+
+    db.add(
+        DailyAnswer(
+            question_id=q.id, user_id=user.id, content=body.content, client_key=body.client_key
+        )
+    )
+    db.flush()
+    streak_service.do_touch(db, couple, user.id)      # 答题算有效互动
+
+    # 若这是第二个答的人 → 双方齐了 → 落 daily_qa 时间线（只落一次）
+    answers = db.query(DailyAnswer).filter(DailyAnswer.question_id == q.id).all()
+    if len(answers) == 2:
+        parent = Event(
+            couple_id=couple.id,
+            actor_user_id=None,
+            kind="daily_qa",
+            content=q.question,
+            parent_event_id=None,
+        )
+        db.add(parent)
+        db.flush()
+        for a in answers:
+            db.add(
+                Event(
+                    couple_id=couple.id,
+                    actor_user_id=a.user_id,
+                    kind="daily_qa",
+                    content=a.content,
+                    parent_event_id=parent.id,
+                )
+            )
+
+    resp = _build_response(db, couple, user, q)
+    db.commit()
+    return resp

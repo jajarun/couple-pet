@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import actions, auth, avatars, couples, events
+from app.routers import actions, auth, avatars, couples, daily, events
 
 app = FastAPI(title="AI Couple Pet Game API")
 
@@ -9,6 +9,7 @@ app.include_router(couples.router)
 app.include_router(avatars.router)
 app.include_router(actions.router)
 app.include_router(events.router)
+app.include_router(daily.router)
 
 
 @app.get("/health")
