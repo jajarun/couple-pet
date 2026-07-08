@@ -14,7 +14,7 @@ def test_edit_mine_and_partner_sees_it_as_pet(client):
     r = client.put(
         "/avatars/mine",
         headers=ha,
-        json={"name": "狗蛋", "appearance": {"emoji": "🐶"}, "persona": {"tone": "毒舌"}},
+        json={"name": "狗蛋", "appearance": {"emoji": "🐶"}, "persona": {"tone": ["毒舌", "傲娇"]}},
     )
     assert r.status_code == 200
     assert r.json()["name"] == "狗蛋"
@@ -22,7 +22,7 @@ def test_edit_mine_and_partner_sees_it_as_pet(client):
     # bob keeps alice's avatar as his pet
     pet = client.get("/avatars/pet", headers=hb).json()
     assert pet["name"] == "狗蛋"
-    assert pet["persona"] == {"tone": "毒舌"}
+    assert pet["persona"] == {"tone": ["毒舌", "傲娇"]}
     assert pet["subject_user_id"] != pet["keeper_user_id"]
 
 

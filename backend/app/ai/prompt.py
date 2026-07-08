@@ -19,6 +19,16 @@ def _mood_hint(stats: dict) -> str:
     return "；".join(hints) if hints else "你心情平常"
 
 
+def format_tone(tone) -> str:
+    """把基调归一成一句可读文案：list 用顿号拼、str 原样、空值回落「沙雕」。
+    基调支持多选(存成数组)后,老数据仍是字符串,这里统一兼容。"""
+    if isinstance(tone, list):
+        parts = [str(t).strip() for t in tone if str(t).strip()]
+        return "、".join(parts) if parts else "沙雕"
+    tone = (str(tone).strip() if tone is not None else "")
+    return tone or "沙雕"
+
+
 def _gender_hint(persona: dict) -> str:
     gender = persona.get("gender")
     if gender == "male":
@@ -29,7 +39,7 @@ def _gender_hint(persona: dict) -> str:
 
 
 def _system_prompt(persona: dict, stats: dict) -> str:
-    tone = persona.get("tone", "沙雕")
+    tone = format_tone(persona.get("tone", "沙雕"))
     seed = (persona.get("seed") or "").strip()
     seed_line = seed if seed else "（对方还没细说，你自己发挥）"
     return (

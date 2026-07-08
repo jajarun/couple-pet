@@ -13,6 +13,15 @@ def test_system_carries_tone_and_seed():
     assert "爱吃醋的小恶魔" in sys["content"]
 
 
+def test_multi_tone_joined_without_brackets():
+    # 基调多选(数组)→ 顿号拼接进 prompt,不能是 ['毒舌','高冷'] 的 list repr
+    msgs = build_messages({"tone": ["毒舌", "高冷"]}, LOW, "chat", "在吗", [])
+    content = msgs[0]["content"]
+    assert "毒舌" in content and "高冷" in content
+    assert "毒舌、高冷" in content
+    assert "[" not in content and "'" not in content
+
+
 def test_scold_final_turn_marks_being_scolded():
     msgs = build_messages({"tone": "毒舌"}, LOW, "scold", "大猪蹄子", [])
     last = msgs[-1]
