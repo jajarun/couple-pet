@@ -14,7 +14,7 @@ export interface Stats {
   miss: number
   intimacy: number
 }
-export type EventKind = 'action' | 'ai_reaction' | 'real_response' | 'system'
+export type EventKind = 'action' | 'ai_reaction' | 'real_response' | 'system' | 'daily_qa'
 export interface GameEvent {
   id: number
   couple_id: number
@@ -46,4 +46,18 @@ export interface FeedResponse {
   events: GameEvent[]
   stats: Stats
   has_more?: boolean
+}
+export interface StreakView {
+  count: number
+  i_did_today: boolean
+  partner_did_today: boolean
+  at_risk: boolean
+  lagging_user_id: number | null
+}
+export interface DailyResponse {
+  question: { text: string; flavor: string }
+  my_answer: string | null
+  partner_answer: string | null
+  both_answered: boolean
+  streak: StreakView
 }
