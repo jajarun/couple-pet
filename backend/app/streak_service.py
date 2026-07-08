@@ -58,6 +58,17 @@ def do_touch(db, couple, user_id: int) -> None:
         )
 
 
+def do_rescue(db, couple, user_id: int) -> bool:
+    """尝试续火：可救则应用并返回 True，否则 False。不扣数值、不 commit。"""
+    row = get_or_create_row(db, couple.id)
+    today = _today()
+    state = _row_to_state(row)
+    if not streak.can_rescue(state, today):
+        return False
+    _apply_state(row, streak.rescue(state, today))
+    return True
+
+
 def build_view(db, couple, user_id: int) -> dict:
     row = get_or_create_row(db, couple.id)
     v = streak.view(_row_to_state(row), slot_for(couple, user_id), _today())

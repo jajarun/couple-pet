@@ -9,7 +9,7 @@ from app import streak_service
 from app.config import settings
 from app.db import get_db
 from app.deps import get_active_couple, get_current_user
-from app.models import Couple, DailyAnswer, DailyQuestion, Event, User
+from app.models import Couple, CoupleStats, DailyAnswer, DailyQuestion, Event, User
 from app.rules import daily_questions, streak
 from app.time_utils import utcnow
 
@@ -157,3 +157,23 @@ def answer_daily(
         # 回滚后重试一次：题/答案此时都已可见，会分别走"直接查到"和"existing 幂等"分支。
         db.rollback()
         return _run()
+
+
+_RESCUE_INTIMACY_COST = 5
+
+
+@router.post("/streak/rescue")
+def rescue_streak(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    couple = get_active_couple(db, user)
+    if couple is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "no active couple")
+    if not streak_service.do_rescue(db, couple, user.id):
+        raise HTTPException(status.HTTP_409_CONFLICT, "cannot rescue")
+    cs = db.get(CoupleStats, couple.id)
+    if cs is not None:
+        s = dict(cs.stats)
+        s["intimacy"] = max(0, s.get("intimacy", 0) - _RESCUE_INTIMACY_COST)
+        cs.stats = s
+    view = streak_service.build_view(db, couple, user.id)
+    db.commit()
+    return view

@@ -118,3 +118,10 @@ def test_get_daily_recovers_from_concurrent_insert_conflict(client, monkeypatch)
     body = r.json()
     assert body["question"]["text"]                 # 重试后正常拿到题
     assert calls["n"] == 2                           # 确实撞车了一次、重试了一次
+
+
+def test_rescue_rejected_when_not_broken(client):
+    ha, hb = _pair(client)
+    client.get("/daily", headers=ha)
+    r = client.post("/streak/rescue", headers=ha)
+    assert r.status_code == 409          # 火苗没断，没得救
