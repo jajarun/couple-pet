@@ -1,6 +1,8 @@
 from datetime import date
 
+import pytest
 from sqlalchemy import create_engine, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -44,3 +46,23 @@ def test_daily_answer_stores_content():
     ans = db.scalars(select(DailyAnswer).where(DailyAnswer.question_id == 1)).one()
     assert ans.content == "我的答案"
     assert ans.user_id == 42
+
+
+def test_daily_question_rejects_duplicate_couple_day():
+    db = _session()
+    db.add(DailyQuestion(couple_id=1, day=date(2026, 7, 8), question="q1", flavor="silly"))
+    db.commit()
+    db.add(DailyQuestion(couple_id=1, day=date(2026, 7, 8), question="q2", flavor="deep"))
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
+def test_daily_answer_rejects_duplicate_question_user():
+    db = _session()
+    db.add(DailyQuestion(couple_id=1, day=date(2026, 7, 8), question="q", flavor="silly"))
+    db.commit()
+    db.add(DailyAnswer(question_id=1, user_id=42, content="a1", client_key="k1"))
+    db.commit()
+    db.add(DailyAnswer(question_id=1, user_id=42, content="a2", client_key="k2"))
+    with pytest.raises(IntegrityError):
+        db.commit()
