@@ -22,6 +22,32 @@ def test_get_daily_generates_question_and_streak(client):
     assert body["my_answer"] is None
     assert body["both_answered"] is False
     assert body["streak"]["count"] == 0
+    assert body["streak"]["rescuable"] is False       # 火苗没断，不给续
+
+
+def test_get_daily_uses_ai_question_when_key_present(client, monkeypatch):
+    # 有 key 时,当天首拉 /daily 用 AI 出题(不占个人额度);双方随后看到同一道 AI 题
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "deepseek_api_key", "sk-test")
+    monkeypatch.setattr("app.ai.daily_question.chat_completion", lambda messages: "AI 给你俩出的题?")
+    ha, hb = _pair(client)
+    a = client.get("/daily", headers=ha).json()
+    assert a["question"]["text"] == "AI 给你俩出的题?"
+    b = client.get("/daily", headers=hb).json()
+    assert b["question"]["text"] == "AI 给你俩出的题?"   # 记库后双方一致
+
+
+def test_get_daily_falls_back_to_local_without_key(client, monkeypatch):
+    # 无 key(默认)时回落本地题库,离线照常出题
+    from app.config import settings
+    from app.rules import daily_questions
+
+    monkeypatch.setattr(settings, "deepseek_api_key", "")
+    ha, hb = _pair(client)
+    body = client.get("/daily", headers=ha).json()
+    flavor = body["question"]["flavor"]
+    assert body["question"]["text"] in daily_questions.LOCAL_QUESTIONS[flavor]
 
 
 def test_get_daily_is_stable_same_day(client):
@@ -125,6 +151,32 @@ def test_rescue_rejected_when_not_broken(client):
     client.get("/daily", headers=ha)
     r = client.post("/streak/rescue", headers=ha)
     assert r.status_code == 409          # 火苗没断，没得救
+
+
+def test_rescue_restores_streak_and_costs_intimacy(client, monkeypatch):
+    # 端到端:前天两人 hug 起火 → 跳过昨天(漏正好一天)→ 火苗可救 → 续火恢复天数、扣 5 亲密
+    import app.streak_service as ss
+    from datetime import date
+
+    ha, hb = _pair(client)
+    day = {"d": date(2026, 7, 6)}                      # 前天
+    monkeypatch.setattr(ss, "_today", lambda: day["d"])
+    client.post("/actions", headers=ha, json={"action_type": "hug", "content": "", "client_key": "h1"})
+    client.post("/actions", headers=hb, json={"action_type": "hug", "content": "", "client_key": "h2"})
+    assert client.get("/daily", headers=ha).json()["streak"]["count"] == 1
+
+    day["d"] = date(2026, 7, 8)                        # 跳过昨天 → 漏正好一天
+    v = client.get("/daily", headers=ha).json()["streak"]
+    assert v["count"] == 0                             # 断了显示 0
+    assert v["rescuable"] is True                      # 但可救 → 露出续火按钮
+
+    before = client.get("/events", headers=ha).json()["stats"]["intimacy"]
+    r = client.post("/streak/rescue", headers=ha)
+    assert r.status_code == 200
+    assert r.json()["count"] == 1                      # 天数恢复
+    assert r.json()["rescuable"] is False              # 救过就不再可救
+    after = client.get("/events", headers=ha).json()["stats"]["intimacy"]
+    assert after == before - 5                         # 花了 5 亲密
 
 
 def test_answer_rejects_empty_content(client):

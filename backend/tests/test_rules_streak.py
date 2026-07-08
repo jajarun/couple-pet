@@ -73,6 +73,7 @@ def test_view_alive_and_both_done():
         "i_did_today": True,
         "partner_did_today": True,
         "at_risk": False,
+        "rescuable": False,
         "lagging_slot": None,
     }
 
@@ -95,6 +96,19 @@ def test_view_broken_shows_zero():
     v = view(s, "a", D)
     assert v["count"] == 0            # 断了显示 0
     assert v["at_risk"] is False
+    assert v["rescuable"] is True     # 只漏一天 → 露出续火按钮
+
+
+def test_view_rescuable_flag_tracks_can_rescue():
+    # 存活（今天两人都完成）→ 不可救
+    alive = touch(touch(empty_state(), "a", D), "b", D)
+    assert view(alive, "a", D)["rescuable"] is False
+    # 漏超过一天 → 不可救
+    big_gap = {"count": 3, "last_both_day": D - timedelta(days=3), "a_active_day": None, "b_active_day": None, "rescue_day": None}
+    assert view(big_gap, "a", D)["rescuable"] is False
+    # 漏正好一天但今天已续过 → 不可救
+    used = {"count": 3, "last_both_day": DBY, "a_active_day": DBY, "b_active_day": DBY, "rescue_day": D}
+    assert view(used, "a", D)["rescuable"] is False
 
 
 def test_rescue_only_when_missed_exactly_one_day():

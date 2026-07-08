@@ -1,10 +1,10 @@
 import random
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app import streak_service
+from app import push_service, streak_service
 from app.ai.deepseek import generate_reaction
 from app.ai.quota import ai_quota_available, record_ai_usage
 from app.config import settings
@@ -21,6 +21,17 @@ router = APIRouter(tags=["actions"])
 _AI_FALLBACK = ["（分身正在充电，先甩你个白眼~）", "（本尊今日营业已满，明天再怼你）"]
 
 _COMFORT_NARRATION = "⚠️ 委屈值爆表啦——TA 在角落画圈圈，快去哄哄（喂口狗粮/抱一个/道个歉）~"
+
+# 对方发动作时给 TA（另一半）推的一句话
+_ACTION_PUSH = {
+    "scold": "TA 骂你了 😤",
+    "poke": "TA 戳了你一下 👉",
+    "feed_dogfood": "TA 喂了你狗粮 🍖",
+    "hug": "TA 抱了你一下 🤗",
+    "miss_you": "TA 说想你了 🥺",
+    "apologize": "TA 跟你道歉了 🙇",
+    "chat": "TA 找你唠嗑 💬",
+}
 
 
 class ActionIn(BaseModel):
@@ -93,6 +104,7 @@ def _recent_context(db: Session, couple_id: int, user_id: int, n: int) -> list[d
 @router.post("/actions")
 def do_action(
     body: ActionIn,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -180,6 +192,27 @@ def do_action(
     streak_service.do_touch(db, couple, user.id)
     db.commit()
     db.refresh(action_event)
+
+    # 隔空撩拨：给对方推一条（commit 后异步发，不阻塞响应）。委屈爆表是更强的召回信号，
+    # 合并成一条发（同发一个人时不双响），tag 让 SW 端折叠。partner 需在此刻同步取成 int。
+    partner_id = push_service.partner_of(couple, user.id)
+    if partner_id is not None:
+        if needs_comfort(new_stats):
+            payload = {
+                "title": "🥺 委屈值爆表",
+                "body": "TA 那边委屈到爆表啦，快回去哄哄——喂口狗粮/抱一个/道个歉",
+                "url": "/",
+                "tag": "comfort",
+            }
+        else:
+            payload = {
+                "title": "💕 TA 找你啦",
+                "body": _ACTION_PUSH.get(body.action_type, "TA 找你啦"),
+                "url": "/",
+                "tag": "action",
+            }
+        background_tasks.add_task(push_service.send_to_user, partner_id, payload)
+
     return _bundle(db, couple.id, action_event, new_stats)
 
 

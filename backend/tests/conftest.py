@@ -10,7 +10,7 @@ from app.main import app
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
@@ -24,8 +24,14 @@ def client():
         finally:
             db.close()
 
+    # push_service / push_scheduler 各自开 SessionLocal 发推、扫库（不走请求作用域），
+    # 测试里把它们指到同一个内存库，否则会连到 dev.db 看不到测试数据。
+    monkeypatch.setattr("app.push_service.SessionLocal", TestingSessionLocal)
+    monkeypatch.setattr("app.push_scheduler.SessionLocal", TestingSessionLocal)
+
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:
+        c.session_factory = TestingSessionLocal  # 让测试能开同库会话查数据
         yield c
     app.dependency_overrides.clear()
 

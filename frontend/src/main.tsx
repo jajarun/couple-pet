@@ -24,3 +24,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>,
 )
+
+// 注册最小 Service Worker（承载 Web Push）。放在 React 树外，只做一次。
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* 注册失败（比如非 HTTPS/localhost）就算了，不影响主功能 */
+    })
+  })
+}

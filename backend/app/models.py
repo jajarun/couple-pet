@@ -118,3 +118,23 @@ class DailyAnswer(Base):
     content: Mapped[str] = mapped_column(Text, default="", nullable=False)
     client_key: Mapped[str] = mapped_column(String(64), nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+
+class PushSubscription(Base):
+    """一个浏览器的 Web Push 订阅。按 endpoint 唯一（重复订阅走 upsert）；
+    一个 user 可有多行（多设备）。发推失败为 404/410 时按 endpoint 删除。"""
+
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (
+        UniqueConstraint("endpoint", name="uq_push_subscriptions_endpoint"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # 定长 VARCHAR：MySQL 不允许 TEXT 列直接建唯一索引（须给 key 长度）；
+    # 512 足够容纳各家推送 endpoint（FCM/Mozilla/Apple 实测都 < 512），且 utf8mb4 下
+    # 唯一索引 2048B < InnoDB 3072B 上限。
+    endpoint: Mapped[str] = mapped_column(String(512), nullable=False)
+    p256dh: Mapped[str] = mapped_column(String(255), nullable=False)
+    auth: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)

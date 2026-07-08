@@ -1,0 +1,14 @@
+{
+  "name": "情侣宠物",
+  "short_name": "情侣宠物",
+  "description": "两个人的 AI 分身宠物，隔空撩拨、火苗与每日一问",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f5fb",
+  "theme_color": "#b7a9e0",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

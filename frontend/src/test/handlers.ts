@@ -13,7 +13,28 @@ export const handlers = [
       my_answer: null,
       partner_answer: null,
       both_answered: false,
-      streak: { count: 0, i_did_today: false, partner_did_today: false, at_risk: false, lagging_user_id: null },
+      streak: {
+        count: 0,
+        i_did_today: false,
+        partner_did_today: false,
+        at_risk: false,
+        rescuable: false,
+        lagging_user_id: null,
+      },
     }),
   ),
+  http.post('/api/streak/rescue', () =>
+    HttpResponse.json({
+      count: 3,
+      i_did_today: false,
+      partner_did_today: false,
+      at_risk: true,
+      rescuable: false,
+      lagging_user_id: null,
+    }),
+  ),
+  // 默认推送未启用（空公钥），订阅/退订成功；单测按需用 server.use 覆盖
+  http.get('/api/push/public-key', () => HttpResponse.json({ key: '' })),
+  http.post('/api/push/subscribe', () => new HttpResponse(null, { status: 204 })),
+  http.delete('/api/push/subscribe', () => new HttpResponse(null, { status: 204 })),
 ]

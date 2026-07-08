@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     deepseek_recent_context: int = 10  # 喂进 prompt 的最近事件条数
     nudge_idle_seconds: int = 55  # 距上条事件多久没动静，分身才主动撩你（前端约每分钟轮询一次）
     streak_utc_offset_hours: int = 8  # 火苗日界时区偏移（8=上海，无 DST）
+    # Web Push（VAPID）。空 private key = 关闭推送（dev/CI 离线兜底，同 deepseek_api_key 范式）。
+    vapid_public_key: str = ""  # 前端订阅要用，走 GET /push/public-key 下发
+    vapid_private_key: str = ""  # 只在服务端，前端永不可见
+    vapid_subject: str = "mailto:leosmith16879@gmail.com"
+    streak_reminder_hour: int = 20  # 每天几点（火苗日界时区，UTC+8）扫一次将熄的火苗并提醒
 
 
 settings = Settings()

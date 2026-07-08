@@ -11,7 +11,6 @@ import { useAction } from '../hooks/useAction'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { usePetAvatar } from '../hooks/useAvatar'
 import { statsKey, useFeed } from '../hooks/useFeed'
-import { useDaily } from '../hooks/useDaily'
 import { GameEvent, Stats } from '../api/types'
 
 const GRIEVANCE_ALARM = 80
@@ -28,7 +27,6 @@ export function HomeScreen({ coupleId, partnerId }: { coupleId: number; partnerI
   const pet = usePetAvatar(true)
   const action = useAction(coupleId)
   const feed = useFeed(coupleId)
-  const daily = useDaily(coupleId)
   const key = useIdempotencyKey()
   const [reaction, setReaction] = useState<string | null>(null)
   const [bubble, setBubble] = useState<{ text: string; typing: boolean } | null>(null)
@@ -111,7 +109,7 @@ export function HomeScreen({ coupleId, partnerId }: { coupleId: number; partnerI
   return (
     <div className="screenview">
       <div className="screenview-body pad stack" style={{ gap: 14 }}>
-        {daily.data && <FireBar streak={daily.data.streak} />}
+        <FireBar coupleId={coupleId} />
         <DailyQuestionCard coupleId={coupleId} />
         <StatDashboard coupleId={coupleId} />
 

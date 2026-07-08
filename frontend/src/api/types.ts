@@ -52,6 +52,7 @@ export interface StreakView {
   i_did_today: boolean
   partner_did_today: boolean
   at_risk: boolean
+  rescuable: boolean
   lagging_user_id: number | null
 }
 export interface DailyResponse {
@@ -60,4 +61,8 @@ export interface DailyResponse {
   partner_answer: string | null
   both_answered: boolean
   streak: StreakView
+}
+export interface PushSubscribePayload {
+  endpoint: string
+  keys: { p256dh: string; auth: string }
 }

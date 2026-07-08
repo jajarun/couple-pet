@@ -1,11 +1,12 @@
 """每日一问：每对每天一道混味题；双方都答完才解锁对方答案，解锁时落 daily_qa 时间线。"""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import streak_service
+from app import push_service, streak_service
+from app.ai import daily_question as ai_daily
 from app.config import settings
 from app.db import get_db
 from app.deps import get_active_couple, get_current_user
@@ -45,7 +46,8 @@ def _get_or_create_question(db: Session, couple: Couple) -> DailyQuestion:
         .limit(20)
         .all()
     }
-    text = daily_questions.pick_local(flavor, recent, seed)
+    # AI 出题（无 key / 失败自动回落 daily_questions 本地题库）；每对每天一次，不占个人 AI 额度
+    text, _used_ai = ai_daily.generate_question(flavor, recent, seed)
     q = DailyQuestion(couple_id=couple.id, day=today, question=text, flavor=flavor)
     db.add(q)
     db.flush()
@@ -98,6 +100,7 @@ def get_daily(db: Session = Depends(get_db), user: User = Depends(get_current_us
 @router.post("/daily/answer")
 def answer_daily(
     body: AnswerIn,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -124,6 +127,9 @@ def answer_daily(
 
         # 若这是第二个答的人 → 双方齐了 → 落 daily_qa 时间线（只落一次）
         answers = db.query(DailyAnswer).filter(DailyAnswer.question_id == q.id).all()
+        # 我是第一个答的人 → 答完后催对方来答、好解锁互看（partner 在 commit 前取成 int）
+        first_answer = len(answers) == 1
+        partner_id = push_service.partner_of(couple, user.id)
         if len(answers) == 2:
             parent = Event(
                 couple_id=couple.id,
@@ -147,6 +153,18 @@ def answer_daily(
 
         resp = _build_response(db, couple, user, q)
         db.commit()
+
+        if first_answer and partner_id is not None:
+            background_tasks.add_task(
+                push_service.send_to_user,
+                partner_id,
+                {
+                    "title": "📩 今日一问",
+                    "body": "TA 已经答完今天的每日一问啦，就等你了 👀",
+                    "url": "/",
+                    "tag": "daily",
+                },
+            )
         return resp
 
     try:

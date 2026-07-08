@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app import push_service
 from app.db import get_db
 from app.deps import get_active_couple, get_current_user
 from app.models import CoupleStats, Event, User
@@ -21,6 +22,7 @@ class RespondIn(BaseModel):
 def respond(
     event_id: int,
     body: RespondIn,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -59,6 +61,19 @@ def respond(
     db.add(ev)
     db.commit()
     db.refresh(ev)
+
+    # 本尊亲自顶替分身回了 → 推给发起那条动作的人（也就是对方）
+    if parent.actor_user_id is not None and parent.actor_user_id != user.id:
+        background_tasks.add_task(
+            push_service.send_to_user,
+            parent.actor_user_id,
+            {
+                "title": "💬 TA 本尊回你了",
+                "body": "这条是 TA 亲自回的，不是分身哦～",
+                "url": "/",
+                "tag": "respond",
+            },
+        )
     return event_out(ev)
 
 

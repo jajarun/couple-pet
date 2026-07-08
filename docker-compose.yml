@@ -33,6 +33,11 @@ services:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+      # Web Push（VAPID）：留空 = 关闭推送 + 不起火苗定时提醒。私钥只在服务端。
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:leosmith16879@gmail.com}
+      STREAK_REMINDER_HOUR: ${STREAK_REMINDER_HOUR:-20}
     depends_on:
       db:
         condition: service_healthy
@@ -46,8 +51,12 @@ services:
       start_period: 15s
 
   # ---------- nginx：静态前端 + /api 反代 ----------
+  # 放进 "web" profile：默认不起。仅 `docker compose --profile web up` 时才拉。
+  # 生产若已有自己的 nginx（托管前端 dist + 反代 /api + 挂 HTTPS 证书），就别带这个 profile，
+  # 只跑 db + backend 并对外暴露 ${BACKEND_PORT} 让宿主 nginx 反代即可。
   web:
     image: nginx:1.27-alpine
+    profiles: ["web"]
     restart: unless-stopped
     volumes:
       - ./frontend/dist:/usr/share/nginx/html:ro

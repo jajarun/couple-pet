@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMyAvatar } from '../hooks/useAvatar'
 import { updateMyAvatar } from '../api/avatars'
+import { usePush } from '../hooks/usePush'
 
 export function MyAvatarScreen({ onLogout }: { onLogout: () => void }) {
   const mine = useMyAvatar(true)
@@ -29,7 +30,38 @@ export function MyAvatarScreen({ onLogout }: { onLogout: () => void }) {
         <button className="btn-primary btn-block" onClick={() => save.mutate()} disabled={save.isPending || !name.trim()}>保存</button>
       </div>
 
+      <PushToggle />
+
       <button className="btn-ghost" onClick={onLogout} style={{ marginTop: 8 }}>退出登录</button>
+    </div>
+  )
+}
+
+// 消息推送开关：TA 撩你 / 火苗快灭时，关着页面也能收到系统通知
+function PushToggle() {
+  const push = usePush()
+  if (!push.supported) return null
+  return (
+    <div className="card stack" style={{ gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <div className="stack" style={{ gap: 2 }}>
+          <strong>消息推送</strong>
+          <span className="muted tiny">TA 撩你 / 火苗快灭时，关着页面也能收到</span>
+        </div>
+        <button
+          className={push.enabled ? 'btn-ghost' : 'btn-primary'}
+          onClick={() => (push.enabled ? push.turnOff() : push.turnOn())}
+          disabled={push.busy}
+        >
+          {push.busy ? '…' : push.enabled ? '已开启' : '开启'}
+        </button>
+      </div>
+      {push.error && (
+        <span role="alert" className="tiny" style={{ color: 'var(--primary-strong)' }}>
+          {push.error}
+        </span>
+      )}
+      <span className="muted tiny">iPhone 需先「添加到主屏幕」再开，才能收到推送</span>
     </div>
   )
 }

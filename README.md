@@ -64,8 +64,13 @@
 - **记住我 / 自动登录**:勾一下下次自动进,刷新不掉登录。
 
 ### 🔥 情侣火苗 + 每日一问
-- **火苗**:两人**每天都露面**(任一互动或答题)才续上,连续天数越攒越高;一方完成、另一方没动时进入"就差你了"状态(将来接推送召回)。漏一天暂时没得救——花点亲密"续火"的入口还在做,先靠两人自觉。
+- **火苗**:两人**每天都露面**(任一互动或答题)才续上,连续天数越攒越高;一方完成、另一方没动时进入"就差你了"状态。漏正好一天可**花亲密续火**救回来。
 - **每日一问**:每天一道 AI 混味题(暧昧 / 深度 / 沙雕轮换),**双方都答完才解锁对方答案**——答完在等 TA,就是每天回来的理由。解锁后落进聊天时间线可回看。
+
+### 📲 消息推送(PWA + Web Push)
+- 关着页面也能收到:**TA 撩你 / 本尊回你 / 每日一问对方先答了 / 委屈爆表**即时推;**火苗快灭 / 已断可救**每天定时提醒。
+- 「⚙️ 我」页签一键开启;离线安全:服务端没配 VAPID 密钥就整套静默关闭,不影响主功能。
+- **iPhone 要先「添加到主屏幕」**(iOS 16.4+)才收得到;需 HTTPS(localhost 除外)。
 
 ---
 
@@ -98,6 +103,7 @@ cp .env.example .env      # 可选:改端口 / 密码 / 填 DeepSeek Key
 
 - 手机 / 局域网访问、绑定 `.local` 本地域名、当服务器长期运行等,见 **[`deploy/README.md`](deploy/README.md)**。
 - 想点亮真 AI:在 `.env` 填 `DEEPSEEK_API_KEY=sk-...` 再 `docker compose up -d backend`;留空则全程走离线沙雕兜底。
+- 想开消息推送:`cd backend && ./.venv/bin/python -m app.gen_vapid` 生成一对密钥,把打印的 `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` 填进 `.env`,`docker compose up -d backend` 生效。**注意 Web Push 需 HTTPS**(localhost 除外),生产要给 nginx 挂证书。
 
 > 两个人才玩得出隔空互动的爽点——用两台设备(或两个隐身窗口)各注册一个号走一遍,对照 [`docs/couple-playtest-checklist.md`](docs/couple-playtest-checklist.md)。
 

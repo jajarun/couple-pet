@@ -6,6 +6,7 @@ import { MyAvatarScreen } from '../me/MyAvatarScreen'
 import { useAuth } from '../auth/AuthContext'
 import { useFeed } from '../hooks/useFeed'
 import { useNudge } from '../hooks/useNudge'
+import { ensurePushSubscribed } from '../hooks/usePush'
 import { hasUnseen } from './badge'
 import { Gender } from '../theme'
 
@@ -23,6 +24,9 @@ export function MainShell({
   const [tab, setTab] = useState('home')
   const { logout, user } = useAuth()
   useNudge(coupleId) // 页面开着时，分身每分钟可能主动撩你一下
+  useEffect(() => {
+    ensurePushSubscribed() // 已授权过就静默补订阅（不弹权限框）；不支持则无操作
+  }, [])
   const feed = useFeed(coupleId)
   const maxId = (feed.data?.events ?? []).reduce((m, e) => Math.max(m, e.id), 0)
   const seenRef = useRef(0)

@@ -53,6 +53,7 @@ def view(state: dict, slot: str, today: date) -> dict:
         "i_did_today": i_did,
         "partner_did_today": partner_did,
         "at_risk": alive and not both_today,
+        "rescuable": can_rescue(state, today),
         "lagging_slot": lagging,
     }
 
