@@ -2,8 +2,16 @@ import { FormEvent, CSSProperties, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { updateMyAvatar } from '../api/avatars'
 
-const TONES = ['毒舌', '憨憨', '舔狗', '高冷', '中二']
-const EMOJIS = ['🐷', '🐶', '🐱', '🐹', '👾', '🦖']
+const TONES = [
+  '毒舌', '傲娇', '憨憨', '沙雕', '舔狗', '高冷', '中二', '温柔',
+  '粘人', '闷骚', '撒娇', '腹黑', '话痨', '佛系', '醋精', '社恐',
+]
+const EMOJIS = [
+  '🐷', '🐶', '🐱', '🐰', '🦊', '🐼', '🐸', '🐲', // 动物
+  '👦', '👧', '🧑', '👶', '🤴', '👸', // 人物
+  '🧙', '🧚', '🥷', '🦸', '🦹', '🤠', // 角色
+  '👾', '🦖', '🤖', '👽', '👻', '🎃', '🤡', '😎', // 其它
+]
 
 const chip = (active: boolean): CSSProperties => ({
   minHeight: 42,
