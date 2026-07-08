@@ -79,3 +79,42 @@ class Event(Base):
     parent_event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=True)
     client_key: Mapped[str] = mapped_column(String(64), nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+
+class CoupleStreak(Base):
+    __tablename__ = "couple_streaks"
+
+    couple_id: Mapped[int] = mapped_column(ForeignKey("couples.id"), primary_key=True)
+    count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_both_day: Mapped[object] = mapped_column(Date, nullable=True)
+    a_active_day: Mapped[object] = mapped_column(Date, nullable=True)
+    b_active_day: Mapped[object] = mapped_column(Date, nullable=True)
+    rescue_day: Mapped[object] = mapped_column(Date, nullable=True)
+
+
+class DailyQuestion(Base):
+    __tablename__ = "daily_questions"
+    __table_args__ = (
+        UniqueConstraint("couple_id", "day", name="uq_daily_questions_couple_day"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    couple_id: Mapped[int] = mapped_column(ForeignKey("couples.id"), nullable=False)
+    day: Mapped[object] = mapped_column(Date, nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    flavor: Mapped[str] = mapped_column(String(16), default="", nullable=False)
+    created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+
+class DailyAnswer(Base):
+    __tablename__ = "daily_answers"
+    __table_args__ = (
+        UniqueConstraint("question_id", "user_id", name="uq_daily_answers_question_user"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    question_id: Mapped[int] = mapped_column(ForeignKey("daily_questions.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    content: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    client_key: Mapped[str] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)

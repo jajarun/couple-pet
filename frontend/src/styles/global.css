@@ -324,6 +324,121 @@ input[type='checkbox'] {
 .reply-inline { display: flex; gap: 8px; margin-top: 8px; }
 .reply-inline input { flex: 1; }
 
+/* ============ 火苗 + 每日一问 ============ */
+
+/* 火苗条：首页顶部的连续打卡状态，紧凑药丸条 */
+.fire-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-1);
+  padding: 8px 14px;
+  font-size: 14px;
+  color: var(--ink);
+}
+.fire-bar b { font-weight: 800; }
+.fire-emoji { font-size: 17px; line-height: 1; }
+.fire-hint {
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 快断了 → 用 warn 提醒紧迫感，但仍保持柔和 */
+.fire-bar.at-risk {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 8%, var(--surface));
+}
+.fire-bar.at-risk .fire-hint { color: var(--warn); }
+
+/* 每日一问卡片（首页） */
+.daily-card {
+  background: var(--surface);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-1);
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+.daily-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.daily-q {
+  font-size: 16.5px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.4;
+}
+/* 答完等 TA：柔和的主题色底 + 深色主题字，保证蓝/粉两种主题下都清晰可读 */
+.daily-waiting {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.daily-reveal { display: grid; gap: 6px; }
+.daily-ans {
+  border-radius: var(--r-sm);
+  padding: 9px 12px;
+  font-size: 14.5px;
+  color: var(--ink);
+  line-height: 1.4;
+}
+.daily-ans b { margin-right: 4px; }
+/* 我的答案：主题色淡底 + 深字；TA 的答案：中性灰底，两者一眼可辨 */
+.daily-ans.mine { background: var(--primary-soft); color: var(--primary-strong); }
+.daily-ans.partner { background: var(--surface-2); color: var(--ink); }
+.daily-err {
+  color: var(--warn);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* 聊天时间线里的今日一问卡：比气泡窄、居中，明显区别于普通消息 */
+.qa-card {
+  width: 88%;
+  max-width: 320px;
+  margin: 10px auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-1);
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+}
+.qa-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.qa-q {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.4;
+}
+.qa-a {
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+  font-size: 13.5px;
+  color: var(--ink);
+  line-height: 1.4;
+}
+.qa-a.mine { background: var(--primary-soft); color: var(--primary-strong); }
+.qa-a.partner { background: var(--surface-2); color: var(--ink); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;

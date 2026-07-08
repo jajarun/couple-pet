@@ -59,3 +59,22 @@ test('my own non-chat action renders as a tip with the right pronoun', async () 
   // my own action offers no 本尊回应
   expect(screen.queryByRole('button', { name: '👤 本尊回应' })).toBeNull()
 })
+
+test('renders a daily_qa card with both answers', async () => {
+  server.use(
+    http.get('/api/events', () =>
+      HttpResponse.json({
+        events: [
+          { id: 100, couple_id: 1, actor_user_id: null, kind: 'daily_qa', action_type: null, content: '今天想我了吗?', parent_event_id: null, created_at: 't' },
+          { id: 101, couple_id: 1, actor_user_id: 1, kind: 'daily_qa', action_type: null, content: '想了', parent_event_id: 100, created_at: 't' },
+          { id: 102, couple_id: 1, actor_user_id: 2, kind: 'daily_qa', action_type: null, content: '哼', parent_event_id: 100, created_at: 't' },
+        ],
+        stats: { grievance: 0, dogfood: 0, miss: 0, intimacy: 0 },
+      }),
+    ),
+  )
+  renderWithProviders(<ChatScreen coupleId={1} myUserId={1} partnerId={2} />)
+  expect(await screen.findByText('今天想我了吗?')).toBeInTheDocument()
+  expect(screen.getByText('想了')).toBeInTheDocument()
+  expect(screen.getByText('哼')).toBeInTheDocument()
+})
