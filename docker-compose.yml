@@ -24,7 +24,11 @@ services:
 
   # ---------- FastAPI 后端 ----------
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      # 国内构建可在 .env 填 PIP_INDEX_URL（清华/阿里镜像）给 pip 提速；留空 = 官方 pypi
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
     restart: unless-stopped
     environment:
       DATABASE_URL: mysql+pymysql://${MYSQL_USER:-petgame}:${MYSQL_PASSWORD:-petgame}@db:3306/${MYSQL_DATABASE:-petgame}?charset=utf8mb4
