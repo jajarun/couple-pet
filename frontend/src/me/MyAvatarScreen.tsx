@@ -3,21 +3,39 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMyAvatar } from '../hooks/useAvatar'
 import { updateMyAvatar } from '../api/avatars'
 import { updateMe } from '../api/auth'
+import { AVATAR_EMOJIS, FALLBACK_AVATAR_EMOJI } from '../avatarOptions'
 import { meKey, useMe } from '../hooks/useMe'
 import { usePush } from '../hooks/usePush'
+
+const avatarKey = ['avatar', 'mine'] as const
 
 export function MyAvatarScreen({ onLogout }: { onLogout: () => void }) {
   const mine = useMyAvatar(true)
   const qc = useQueryClient()
   const [name, setName] = useState('')
+  const [emoji, setEmoji] = useState(FALLBACK_AVATAR_EMOJI)
+
+  const savedName = mine.data?.name ?? ''
+  const savedEmoji = (mine.data?.appearance?.emoji as string) ?? FALLBACK_AVATAR_EMOJI
   useEffect(() => {
-    if (mine.data) setName(mine.data.name)
-  }, [mine.data])
+    if (!mine.data) return
+    setName(savedName)
+    setEmoji(savedEmoji)
+  }, [mine.data, savedName, savedEmoji])
+
   const save = useMutation({
-    mutationFn: () => updateMyAvatar({ name: name.trim() }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['avatar', 'mine'] }),
+    mutationFn: () =>
+      updateMyAvatar({
+        name: name.trim(),
+        // appearance 是整列覆盖的：只塞 emoji 会把捏分身时存进去的 tone 一起冲掉
+        appearance: { ...(mine.data?.appearance ?? {}), emoji },
+      }),
+    // 服务端返回直接回写；invalidate 会重拉一次，中间那一帧还是旧造型
+    onSuccess: (av) => qc.setQueryData(avatarKey, av),
   })
-  const emoji = (mine.data?.appearance?.emoji as string) ?? '👾'
+
+  const dirty = name.trim() !== savedName || emoji !== savedEmoji
+
   return (
     <div className="pad stack" style={{ gap: 16 }}>
       <h2>我的分身</h2>
@@ -29,7 +47,33 @@ export function MyAvatarScreen({ onLogout }: { onLogout: () => void }) {
           <div className="pet-face" style={{ fontSize: 60 }}>{emoji}</div>
         </div>
         <input aria-label="分身名字" value={name} onChange={(e) => setName(e.target.value)} />
-        <button className="btn-primary btn-block" onClick={() => save.mutate()} disabled={save.isPending || !name.trim()}>保存</button>
+
+        <div className="stack" style={{ gap: 8 }}>
+          <span className="tiny muted">造型</span>
+          <div className="emoji-chips">
+            {AVATAR_EMOJIS.map((em) => (
+              <button
+                type="button" key={em} className="emoji-chip"
+                aria-label={`emoji-${em}`} aria-pressed={em === emoji} onClick={() => setEmoji(em)}
+              >
+                {em}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          className="btn-primary btn-block"
+          onClick={() => save.mutate()}
+          disabled={save.isPending || !name.trim() || !dirty}
+        >
+          {save.isPending ? '保存中…' : !mine.data || dirty ? '保存' : '已保存'}
+        </button>
+        {save.isError && (
+          <span role="alert" className="tiny" style={{ color: 'var(--primary-strong)' }}>
+            没存上，再试一次~
+          </span>
+        )}
       </div>
 
       <AiReplyToggle />

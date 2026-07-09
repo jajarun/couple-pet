@@ -1,16 +1,11 @@
 import { FormEvent, CSSProperties, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { updateMyAvatar } from '../api/avatars'
+import { AVATAR_EMOJIS } from '../avatarOptions'
 
 const TONES = [
   '毒舌', '傲娇', '憨憨', '沙雕', '舔狗', '高冷', '中二', '温柔',
   '粘人', '闷骚', '撒娇', '腹黑', '话痨', '佛系', '醋精', '社恐',
-]
-const EMOJIS = [
-  '🐷', '🐶', '🐱', '🐰', '🦊', '🐼', '🐸', '🐲', // 动物
-  '👦', '👧', '🧑', '👶', '🤴', '👸', // 人物
-  '🧙', '🧚', '🥷', '🦸', '🦹', '🤠', // 角色
-  '👾', '🦖', '🤖', '👽', '👻', '🎃', '🤡', '😎', // 其它
 ]
 const MAX_TONES = 3 // 基调多选上限，选太多 AI 人设会变杂
 
@@ -24,20 +19,11 @@ const chip = (active: boolean): CSSProperties => ({
   color: active ? 'var(--primary-strong)' : 'var(--ink-2)',
 })
 
-const emojiChip = (active: boolean): CSSProperties => ({
-  fontSize: 26,
-  minHeight: 52,
-  minWidth: 52,
-  borderRadius: 16,
-  border: active ? '2px solid var(--primary)' : '1px solid var(--line)',
-  background: active ? 'var(--primary-soft)' : 'var(--surface)',
-})
-
 export function AvatarCreateScreen() {
   const qc = useQueryClient()
   const [tones, setTones] = useState<string[]>([TONES[0]])
   const [name, setName] = useState('')
-  const [emoji, setEmoji] = useState(EMOJIS[0])
+  const [emoji, setEmoji] = useState(AVATAR_EMOJIS[0])
   const [seed, setSeed] = useState('')
 
   // 点已选的 → 移除（但保留至少 1 个）；点未选的 → 未满 3 个才加
@@ -89,11 +75,11 @@ export function AvatarCreateScreen() {
 
       <div className="stack" style={{ gap: 8 }}>
         <span className="tiny muted">造型</span>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {EMOJIS.map((em) => (
+        <div className="emoji-chips">
+          {AVATAR_EMOJIS.map((em) => (
             <button
-              type="button" key={em} aria-label={`emoji-${em}`} aria-pressed={em === emoji} onClick={() => setEmoji(em)}
-              style={emojiChip(em === emoji)}
+              type="button" key={em} className="emoji-chip"
+              aria-label={`emoji-${em}`} aria-pressed={em === emoji} onClick={() => setEmoji(em)}
             >
               {em}
             </button>

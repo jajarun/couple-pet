@@ -104,6 +104,22 @@ input:focus, textarea:focus {
 /* 开关键不参与收缩，「开启」两个字才不会竖着排 */
 .setting-toggle { flex-shrink: 0; white-space: nowrap; }
 
+/* ============ 分身造型选格（捏分身页 + 设置页共用）============ */
+.emoji-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.emoji-chip {
+  font-size: 26px;
+  min-height: 52px;
+  min-width: 52px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.emoji-chip[aria-pressed='true'] {
+  border: 2px solid var(--primary);
+  background: var(--primary-soft);
+}
+
 /* ============ auth / brand ============ */
 .brand-mark {
   width: 66px; height: 66px; margin: 0 auto;
