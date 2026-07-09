@@ -1,4 +1,4 @@
-from app.ai.prompt import build_messages, _mood_hint
+from app.ai.prompt import build_messages, mood_hint
 
 LOW = {"grievance": 0, "dogfood": 0, "miss": 0, "intimacy": 0}
 
@@ -63,9 +63,23 @@ def test_gender_hint_absent_when_unset():
     assert "男生" not in msgs[0]["content"] and "女生" not in msgs[0]["content"]
 
 
+def test_branch_hint_rewrites_the_voice_once_the_form_locks_in():
+    dark = build_messages({"tone": "毒舌", "branch": "dark"}, LOW, "chat", "hi", [])
+    assert "黑化" in dark[0]["content"]
+    glutton = build_messages({"tone": "毒舌", "branch": "glutton"}, LOW, "chat", "hi", [])
+    assert "猪猪" in glutton[0]["content"]
+
+
+def test_branch_hint_absent_before_the_form_locks_in():
+    # 没到成体时调用方传空 branch；未知值也不该漏进 prompt
+    for branch in ("", None, "nonsense"):
+        msgs = build_messages({"tone": "毒舌", "branch": branch}, LOW, "chat", "hi", [])
+        assert "进化" not in msgs[0]["content"] and "黑化" not in msgs[0]["content"]
+
+
 def test_mood_hint_reflects_high_grievance():
-    assert "委屈" in _mood_hint({"grievance": 70, "dogfood": 0, "miss": 0, "intimacy": 0})
+    assert "委屈" in mood_hint({"grievance": 70, "dogfood": 0, "miss": 0, "intimacy": 0})
 
 
 def test_mood_hint_default_when_all_low():
-    assert _mood_hint(LOW) == "你心情平常"
+    assert mood_hint(LOW) == "你心情平常"

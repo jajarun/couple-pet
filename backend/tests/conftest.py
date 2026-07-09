@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401 — register tables on Base.metadata
+from app.config import settings
 from app.db import Base, get_db
 from app.main import app
 
@@ -24,10 +25,13 @@ def client(monkeypatch):
         finally:
             db.close()
 
-    # push_service / push_scheduler 各自开 SessionLocal 发推、扫库（不走请求作用域），
-    # 测试里把它们指到同一个内存库，否则会连到 dev.db 看不到测试数据。
+    # push_service / push_scheduler / live_scheduler 各自开 SessionLocal 发推、扫库
+    # （不走请求作用域），测试里把它们指到同一个内存库，否则会连到 dev.db 看不到测试数据。
     monkeypatch.setattr("app.push_service.SessionLocal", TestingSessionLocal)
     monkeypatch.setattr("app.push_scheduler.SessionLocal", TestingSessionLocal)
+    monkeypatch.setattr("app.live_scheduler.SessionLocal", TestingSessionLocal)
+    # `with TestClient(app)` 会跑 lifespan——别让每个用例都拉起一个 APScheduler
+    monkeypatch.setattr(settings, "enable_scheduler", False)
 
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:

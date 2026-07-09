@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useMyAvatar } from '../hooks/useAvatar'
+import { myAvatarKey as avatarKey, useMyAvatar } from '../hooks/useAvatar'
 import { updateMyAvatar } from '../api/avatars'
 import { updateMe } from '../api/auth'
 import { AVATAR_EMOJIS, FALLBACK_AVATAR_EMOJI } from '../avatarOptions'
+import { EvolutionBar } from '../components/EvolutionBar'
+import { evolutionOf, faceOf } from '../evolution'
+import { Avatar } from '../api/types'
 import { meKey, useMe } from '../hooks/useMe'
 import { usePush } from '../hooks/usePush'
-
-const avatarKey = ['avatar', 'mine'] as const
 
 export function MyAvatarScreen({ onLogout }: { onLogout: () => void }) {
   const mine = useMyAvatar(true)
@@ -76,10 +77,33 @@ export function MyAvatarScreen({ onLogout }: { onLogout: () => void }) {
         )}
       </div>
 
+      <RaisedByPartner mine={mine.data} />
       <AiReplyToggle />
       <PushToggle />
 
       <button className="btn-ghost" onClick={onLogout} style={{ marginTop: 8 }}>退出登录</button>
+    </div>
+  )
+}
+
+// 上面那张卡是「你把自己设定成什么样」，这张是「TA 把你养成了什么样」——
+// 这只分身归 TA 养，形态完全由 TA 对它做过的动作决定。看着办吧。
+function RaisedByPartner({ mine }: { mine?: Avatar }) {
+  if (!mine) return null
+  const evo = evolutionOf(mine)
+  const grown = evo.stage >= 2
+  return (
+    <div className="card stack" style={{ gap: 10 }}>
+      <div className="setting-text">
+        <strong>TA 把你养成了什么样</strong>
+        <span className="muted tiny">
+          {grown ? '性格已经定型了，这是 TA 一次次互动养出来的' : '还在长——TA 还没把你养出个性'}
+        </span>
+      </div>
+      <div className="center" style={{ fontSize: 52, lineHeight: 1.1 }} aria-label={`形态 ${evo.title}`}>
+        {faceOf(mine)}
+      </div>
+      <EvolutionBar evo={evo} />
     </div>
   )
 }

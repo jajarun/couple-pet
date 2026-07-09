@@ -29,6 +29,18 @@ export interface GameEvent {
   parent_event_id: number | null
   created_at: string
 }
+/** 分身长成什么样。由「饲养者对这只分身做过的动作」累积推动，与共享数值无关。 */
+export interface EvolutionView {
+  stage: number
+  branch: string
+  exp: number
+  next_exp: number | null
+  progress: number
+  emoji: string
+  title: string
+  /** 成体起（stage>=2）形态才抢占用户捏的 appearance.emoji */
+  use_form_emoji: boolean
+}
 export interface Avatar {
   id: number
   couple_id: number
@@ -37,6 +49,13 @@ export interface Avatar {
   name: string
   appearance: Record<string, unknown>
   persona: Record<string, unknown>
+  /** 服务端总会给，但老缓存/早期分身可能没有——读的时候走 evolutionOf() 兜底 */
+  evolution?: EvolutionView
+  /** 今早那条梦话（只有 GET /avatars/pet 带）；今天还没做梦就是 null */
+  dream?: { content: string; at: string } | null
+  /** 它被你气跑了（只有 GET /avatars/pet 带）。此时除了「哄」什么都做不了 */
+  is_away?: boolean
+  runaway_note?: string | null
 }
 export type CoupleState =
   | { couple_id: number; status: 'active'; partner_id: number; partner_gender?: 'male' | 'female' | null }
@@ -45,6 +64,9 @@ export type CoupleState =
 export interface ActionBundle {
   events: GameEvent[]
   stats: Stats
+  evolution?: EvolutionView
+  /** 这一下刚好把分身推过了阶段线 → 放全屏进化动画 */
+  evolved?: boolean
 }
 export interface FeedResponse {
   events: GameEvent[]

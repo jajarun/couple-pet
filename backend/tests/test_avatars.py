@@ -38,3 +38,24 @@ def test_requires_active_couple(client):
     h = auth_headers(client, "solo")
     assert client.get("/avatars/mine", headers=h).status_code == 409
     assert client.put("/avatars/mine", headers=h, json={"name": "x"}).status_code == 409
+
+
+def test_both_endpoints_expose_the_evolution_view(client):
+    ha, hb = _pair(client)
+    # /pet = 我把 TA 养成了什么样；/mine = 我在 TA 眼里被养成了什么样。刚配对都是一颗蛋。
+    for path in ("/avatars/pet", "/avatars/mine"):
+        evo = client.get(path, headers=ha).json()["evolution"]
+        assert evo["stage"] == 0 and evo["exp"] == 0
+        assert evo["emoji"] == "🥚" and evo["use_form_emoji"] is False
+        assert evo["next_exp"] == 10
+
+
+def test_mine_reflects_how_my_partner_treats_me(client):
+    """核心情感设计：我在「我」页签看到的，是 TA 养的那只——TA 怎么对我的，一目了然。"""
+    ha, hb = _pair(client)
+    for i in range(4):  # bob 猛抱他养的那只（代表 alice）
+        client.post(
+            "/actions", headers=hb, json={"action_type": "hug", "content": "", "client_key": f"b{i}"}
+        )
+    assert client.get("/avatars/mine", headers=ha).json()["evolution"]["exp"] == 12
+    assert client.get("/avatars/mine", headers=hb).json()["evolution"]["exp"] == 0

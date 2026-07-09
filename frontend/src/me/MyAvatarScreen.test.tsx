@@ -113,6 +113,27 @@ test('保存失败时给一句人话，不假装成功', async () => {
   expect(screen.getByRole('button', { name: '保存' })).toBeEnabled() // 还能再试
 })
 
+// 这只分身归 TA 养——形态是 TA 一次次互动养出来的，跟你自己捏的造型是两回事
+const DARK = { stage: 3, branch: 'dark', exp: 130, next_exp: null, progress: 1, emoji: '😈', title: '黑化完全体', use_form_emoji: true }
+
+test('「TA 把你养成了什么样」照出 TA 的养法', async () => {
+  server.use(
+    http.get('/api/avatars/mine', () => HttpResponse.json({ ...MINE, evolution: DARK })),
+    http.get('/api/auth/me', () => HttpResponse.json(me(false))),
+  )
+  renderWithProviders(<MyAvatarScreen onLogout={() => {}} />)
+  expect(await screen.findByText('TA 把你养成了什么样')).toBeInTheDocument()
+  expect(screen.getByLabelText('形态 黑化完全体')).toHaveTextContent('😈')
+  expect(screen.getByText(/性格已经定型/)).toBeInTheDocument()
+})
+
+test('还没养出个性时说「还在长」，形态位仍显示你自己捏的造型', async () => {
+  mountable() // MINE 没有 evolution → 当一颗蛋看
+  renderWithProviders(<MyAvatarScreen onLogout={() => {}} />)
+  expect(await screen.findByText(/还在长/)).toBeInTheDocument()
+  expect(screen.getByLabelText('形态 一颗蛋')).toHaveTextContent('🐷')
+})
+
 test('分身回复默认关闭，按钮邀请你「开启」', async () => {
   mountable(false)
   renderWithProviders(<MyAvatarScreen onLogout={() => {}} />)

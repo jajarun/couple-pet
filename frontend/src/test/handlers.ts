@@ -1,5 +1,17 @@
 import { http, HttpResponse } from 'msw'
 
+/** 刚配对时的进化态：一颗蛋。要测别的形态就在用例里覆盖。 */
+export const EGG_EVOLUTION = {
+  stage: 0,
+  branch: '',
+  exp: 0,
+  next_exp: 10,
+  progress: 0,
+  emoji: '🥚',
+  title: '一颗蛋',
+  use_form_emoji: false,
+}
+
 // Default handlers; per-test handlers via server.use(...) take precedence.
 // An empty feed by default keeps components that poll useFeed (Home, MainShell)
 // happy without every test having to mock /events.
@@ -10,6 +22,19 @@ export const handlers = [
   ),
   http.get('/api/events', () =>
     HttpResponse.json({ events: [], stats: { grievance: 0, dogfood: 0, miss: 0, intimacy: 0 } }),
+  ),
+  // 我养的那只（代表 TA）/ TA 养的那只（代表我）；用例按需 server.use 覆盖
+  http.get('/api/avatars/pet', () =>
+    HttpResponse.json({
+      id: 2, couple_id: 1, subject_user_id: 2, keeper_user_id: 1,
+      name: '臭宝', appearance: { emoji: '🐷' }, persona: {}, evolution: EGG_EVOLUTION,
+    }),
+  ),
+  http.get('/api/avatars/mine', () =>
+    HttpResponse.json({
+      id: 1, couple_id: 1, subject_user_id: 1, keeper_user_id: 2,
+      name: '小恶魔', appearance: { emoji: '🐶' }, persona: {}, evolution: EGG_EVOLUTION,
+    }),
   ),
   http.get('/api/daily', () =>
     HttpResponse.json({

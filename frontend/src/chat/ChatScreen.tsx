@@ -18,6 +18,7 @@ const ACTION_VERB: Record<string, (o: string) => string> = {
   miss_you: (o) => `说想${o}`,
   apologize: () => '道了歉',
   chat: (o) => `找${o}唠`,
+  coax: (o) => `把${o}哄回家了`,
 }
 
 function genderClass(g?: Gender | null): string {

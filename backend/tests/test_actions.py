@@ -175,3 +175,70 @@ def test_local_reactions_are_plentiful_and_unique():
     for action, lines in LOCAL_REACTIONS.items():
         assert len(lines) >= 50, f"{action} only has {len(lines)} lines"
         assert len(set(lines)) == len(lines), f"{action} has duplicate lines"
+
+
+def test_bundle_carries_the_evolution_view(client):
+    ha, hb = _pair(client)
+    body = _act(client, hb, "poke", "k1").json()
+    assert body["evolved"] is False
+    assert body["evolution"]["stage"] == 0
+    assert body["evolution"]["exp"] == 1
+    assert body["evolution"]["emoji"] == "🥚"
+
+
+def test_crossing_a_stage_flags_evolved_and_drops_a_standalone_system_event(client):
+    ha, hb = _pair(client)
+    for i in range(3):  # hug=3 exp/次
+        assert _act(client, hb, "hug", f"h{i}").json()["evolved"] is False
+    body = _act(client, hb, "hug", "h3").json()  # exp 12 → 破壳
+    assert body["evolved"] is True
+    assert body["evolution"]["stage"] == 1
+
+    # 庆祝事件不挂 parent，所以不在 bundle 里——否则会跟「委屈爆表」旁白抢 comfortText
+    assert [e["kind"] for e in body["events"]] == ["action", "ai_reaction"]
+    feed = client.get("/events", headers=hb).json()["events"]
+    evolved_events = [e for e in feed if e["action_type"] == "evolve"]
+    assert len(evolved_events) == 1
+    assert evolved_events[0]["kind"] == "system"
+    assert evolved_events[0]["parent_event_id"] is None
+
+
+def test_idempotent_replay_does_not_grow_experience(client):
+    ha, hb = _pair(client)
+    first = _act(client, hb, "hug", "same").json()
+    second = _act(client, hb, "hug", "same").json()
+    assert first["evolution"]["exp"] == second["evolution"]["exp"] == 3
+    assert second["evolved"] is False
+
+
+def test_each_keeper_grows_their_own_avatar(client):
+    """镜像分身各长各的：进化只由「饲养者对这只分身做了什么」推动，不吃 couple 级共享数值。"""
+    ha, hb = _pair(client)
+    for i in range(4):
+        _act(client, hb, "hug", f"b{i}")  # bob 猛抱他养的那只（代表 alice）
+    _act(client, ha, "poke", "a0")        # alice 只戳了一下她养的那只（代表 bob）
+    assert client.get("/avatars/pet", headers=hb).json()["evolution"]["exp"] == 12
+    assert client.get("/avatars/pet", headers=ha).json()["evolution"]["exp"] == 1
+
+
+def test_adult_branch_reaches_the_ai_persona(client, monkeypatch):
+    """闭环：养歪了的形态反过来改写分身的说话方式。"""
+    ha, hb = _pair(client)
+    for i in range(40):  # scold=1 exp/次 → exp 40 → 成体，全是骂 → dark
+        _act(client, hb, "scold", f"s{i}", "菜")
+    import app.routers.actions as m
+
+    seen = {}
+    monkeypatch.setattr(m, "generate_reaction", lambda persona, *a, **k: (seen.update(persona) or ("ok", False)))
+    _act(client, hb, "chat", "c1", "在吗")
+    assert seen["branch"] == "dark"
+
+
+def test_branch_stays_empty_before_adulthood(client, monkeypatch):
+    ha, hb = _pair(client)
+    import app.routers.actions as m
+
+    seen = {}
+    monkeypatch.setattr(m, "generate_reaction", lambda persona, *a, **k: (seen.update(persona) or ("ok", False)))
+    _act(client, hb, "chat", "c1", "在吗")
+    assert seen["branch"] == ""  # 没定型就别让 prompt 提前剧透形态

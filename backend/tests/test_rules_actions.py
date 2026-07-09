@@ -5,9 +5,18 @@ from app.rules.actions import ACTION_TYPES, AI_ACTIONS, LOCAL_REACTIONS, apply_a
 
 def test_action_types_cover_roast_and_sweet():
     assert set(ACTION_TYPES) == {
-        "scold", "poke", "feed_dogfood", "hug", "miss_you", "apologize", "chat"
+        "scold", "poke", "feed_dogfood", "hug", "miss_you", "apologize", "chat", "coax"
     }
     assert AI_ACTIONS == {"scold", "chat"}
+
+
+def test_coax_soothes_and_warms():
+    stats = {"grievance": 90, "dogfood": 0, "miss": 0, "intimacy": 10}
+    new, needs_ai, reaction = apply_action(stats, "coax")
+    assert new["grievance"] == 60   # -30
+    assert new["intimacy"] == 15    # +5
+    assert needs_ai is False
+    assert reaction in LOCAL_REACTIONS["coax"]
 
 
 def test_scold_raises_grievance_and_flags_ai():

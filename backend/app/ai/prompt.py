@@ -6,7 +6,7 @@ _RULES = (
 )
 
 
-def _mood_hint(stats: dict) -> str:
+def mood_hint(stats: dict) -> str:
     hints = []
     if stats.get("grievance", 0) >= 60:
         hints.append("你此刻有点委屈、带刺，想被哄")
@@ -38,6 +38,22 @@ def _gender_hint(persona: dict) -> str:
     return ""
 
 
+# 进化形态反过来改写说话方式：饲养者怎么对它，它就长成什么样、就怎么回嘴。
+# 只有成体（stage>=2，分支已定型）才注入，调用方负责在没定型时传空。
+BRANCH_HINT = {
+    "sweet": "你已进化成甜妹形态，说话甜、黏人、爱撒娇。",
+    "glutton": "你已进化成猪猪形态，满脑子吃的，回话常含混着想吃东西。",
+    "dark": "你已黑化，说话毒舌、腹黑、带刺，刀子嘴豆腐心。",
+    "chatty": "你已进化成话痨形态，话密、爱接梗、停不下来。",
+    "balanced": "你是均衡形态，情绪稳定，什么都来一点。",
+}
+
+
+def _branch_hint(persona: dict) -> str:
+    hint = BRANCH_HINT.get(persona.get("branch") or "")
+    return f"{hint}\n" if hint else ""
+
+
 def _system_prompt(persona: dict, stats: dict) -> str:
     tone = format_tone(persona.get("tone", "沙雕"))
     seed = (persona.get("seed") or "").strip()
@@ -46,8 +62,9 @@ def _system_prompt(persona: dict, stats: dict) -> str:
         "你在扮演对方养的「分身宠物」——代表 TA 眼里的另一半。\n"
         f"你的基调是「{tone}」。人设：{seed_line}。\n"
         f"{_gender_hint(persona)}"
+        f"{_branch_hint(persona)}"
         f"规则：{_RULES}\n"
-        f"此刻状态：{_mood_hint(stats)}。"
+        f"此刻状态：{mood_hint(stats)}。"
     )
 
 

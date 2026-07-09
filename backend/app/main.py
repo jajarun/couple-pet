@@ -9,45 +9,63 @@ from app.routers import actions, auth, avatars, couples, daily, events, push
 logger = logging.getLogger(__name__)
 
 
+def _utc_hour(local_hour: int) -> int:
+    """把火苗日界时区（UTC+8）下的整点换算成 UTC 整点。"""
+    return (local_hour - settings.streak_utc_offset_hours) % 24
+
+
+def _schedule_gameplay(scheduler, cron) -> None:
+    """挂玩法 job（梦话 / 出走检测）。不依赖推送配置——没 VAPID 也该做梦、也该闹脾气。"""
+    from app import live_scheduler
+
+    scheduler.add_job(
+        live_scheduler.run_morning_dreams,
+        cron(hour=_utc_hour(settings.dream_hour), minute=0),
+        id="run_morning_dreams",
+    )
+    # 每小时一次：出走判据看的是 6 小时滑动窗口，扫得稀了会整段错过
+    scheduler.add_job(
+        live_scheduler.detect_runaways,
+        cron(minute=5),
+        id="detect_runaways",
+    )
+
+
+def _schedule_push_reminders(scheduler, cron) -> None:
+    """挂推送提醒 job。只在配了 VAPID 私钥时才有意义（否则 send_to_user 是 no-op）。"""
+    from app import push_scheduler
+
+    scheduler.add_job(
+        push_scheduler.remind_dying_streaks,
+        cron(hour=_utc_hour(settings.streak_reminder_hour), minute=0),
+        id="remind_dying_streaks",
+    )
+    for h in settings.daily_reminder_hour_list:
+        utc_h = _utc_hour(h)
+        scheduler.add_job(
+            push_scheduler.remind_unanswered_daily,
+            cron(hour=utc_h, minute=0),
+            id=f"remind_daily_{utc_h}",
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 火苗定时提醒：仅在启用了 Web Push（配了 VAPID 私钥）时才起 scheduler。
     # 注意：scheduler 跑在 uvicorn 进程内，依赖「单 worker」。若改 `--workers N` /
-    # gunicorn 多进程，定时会每进程各触发一次 → 重复推送，届时须改哨兵或加分布式锁。
+    # gunicorn 多进程，定时会每进程各触发一次 → 重复推送/重复出题，届时须改哨兵或加分布式锁。
     scheduler = None
-    if settings.vapid_private_key:
+    if settings.enable_scheduler:
         try:
             from apscheduler.schedulers.asyncio import AsyncIOScheduler
             from apscheduler.triggers.cron import CronTrigger
 
-            from app import push_scheduler
-
             scheduler = AsyncIOScheduler(timezone="UTC")
-            # streak_reminder_hour 是火苗日界时区（UTC+8）下的小时，换算成 UTC 触发。
-            utc_hour = (
-                settings.streak_reminder_hour - settings.streak_utc_offset_hours
-            ) % 24
-            scheduler.add_job(
-                push_scheduler.remind_dying_streaks,
-                CronTrigger(hour=utc_hour, minute=0),
-                id="remind_dying_streaks",
-            )
-            # 每日一问催答：daily_reminder_hours（UTC+8）各换算成 UTC 触发一次。
-            daily_utc_hours = [
-                (h - settings.streak_utc_offset_hours) % 24
-                for h in settings.daily_reminder_hour_list
-            ]
-            for h in daily_utc_hours:
-                scheduler.add_job(
-                    push_scheduler.remind_unanswered_daily,
-                    CronTrigger(hour=h, minute=0),
-                    id=f"remind_daily_{h}",
-                )
+            _schedule_gameplay(scheduler, CronTrigger)
+            if settings.vapid_private_key:
+                _schedule_push_reminders(scheduler, CronTrigger)
             scheduler.start()
             logger.info(
-                "reminder scheduler started (streak UTC hour=%s, daily UTC hours=%s)",
-                utc_hour,
-                daily_utc_hours,
+                "scheduler started (jobs=%s)", [j.id for j in scheduler.get_jobs()]
             )
         except Exception as e:  # scheduler 起不来不该拖垮整个后端
             logger.warning("failed to start scheduler: %s", e)

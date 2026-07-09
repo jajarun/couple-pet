@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { postAction } from '../api/actions'
 import { ApiError } from '../api/client'
-import { ActionBundle, Stats } from '../api/types'
+import { ActionBundle, Avatar, Stats } from '../api/types'
+import { petAvatarKey } from './useAvatar'
 import { dailyKey } from './useDaily'
 import { FeedData, appendToFeed, feedKey, statsKey } from './useFeed'
 
@@ -12,9 +13,24 @@ export function useAction(coupleId: number) {
       postAction(v.action_type, v.content, v.client_key),
     retry: (failureCount, error) => failureCount < 2 && !(error instanceof ApiError),
     retryDelay: 200,
+    onError: (error) => {
+      // 另一端/定时 job 刚把分身气跑了，而我们这边还不知道 → 重取，让首页切到 RunawayScreen
+      if (error instanceof ApiError && error.status === 409 && error.detail === 'pet_away') {
+        qc.invalidateQueries({ queryKey: petAvatarKey })
+      }
+    },
     onSuccess: (bundle: ActionBundle) => {
       qc.setQueryData<FeedData>(feedKey(coupleId), (old) => appendToFeed(old, bundle.events))
       qc.setQueryData<Stats>(statsKey(coupleId), bundle.stats)
+      // 服务端刚算好的进化态直接回写，进度条当场就动——别再多发一次 GET /avatars/pet
+      const evo = bundle.evolution
+      if (evo) {
+        qc.setQueryData<Avatar>(petAvatarKey, (old) => (old ? { ...old, evolution: evo } : old))
+      }
+      // 哄回来了 → is_away / runaway_note 得重新取
+      if (bundle.events.some((e) => e.action_type === 'coax')) {
+        qc.invalidateQueries({ queryKey: petAvatarKey })
+      }
       // 动作也算今日露面：立刻刷一把火苗/今日一问，别等轮询 20s
       qc.invalidateQueries({ queryKey: dailyKey(coupleId) })
     },
