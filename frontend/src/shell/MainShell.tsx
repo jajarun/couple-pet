@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useFeed } from '../hooks/useFeed'
 import { useNudge } from '../hooks/useNudge'
 import { ensurePushSubscribed } from '../hooks/usePush'
+import { clearAppBadge } from '../push/appBadge'
 import { hasUnseen } from './badge'
 import { Gender } from '../theme'
 
@@ -26,6 +27,15 @@ export function MainShell({
   useNudge(coupleId) // 页面开着时，分身每分钟可能主动撩你一下
   useEffect(() => {
     ensurePushSubscribed() // 已授权过就静默补订阅（不弹权限框）；不支持则无操作
+  }, [])
+  // 人一回到 App 就把主屏图标的未读角标清掉（进来看了就算看过）
+  useEffect(() => {
+    clearAppBadge()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') clearAppBadge()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
   const feed = useFeed(coupleId)
   const maxId = (feed.data?.events ?? []).reduce((m, e) => Math.max(m, e.id), 0)

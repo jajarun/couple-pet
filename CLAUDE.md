@@ -29,14 +29,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pnpm dev                       # vite dev，自动把 /api 反代到 http://localhost:8000
-pnpm build                     # tsc -b && vite build（tsc 是唯一静态门禁，无独立 lint）
+pnpm build                     # tsc -b && vite build（真正的静态门禁，无独立 lint）
 pnpm test                      # vitest run（全部）
 pnpm test src/home/FireBar.test.tsx     # 单文件
 pnpm vitest run -t "可救时"             # 按标题过滤单个用例
-pnpm exec tsc --noEmit         # 只做类型检查
+pnpm exec tsc --noEmit         # 快速类型检查，但覆盖面比 pnpm build 窄（见下）
 ```
 
 > **没有 ESLint / Prettier / 后端 linter**——类型正确性靠 `tsc`，别去找 lint 脚本。
+>
+> **提交前跑 `pnpm build`，别只跑 `pnpm exec tsc --noEmit`**：后者只查根 tsconfig，`tsc -b` 会沿 project references 把**测试文件**也一起查。实际漏过的例子：给只读的 `RefObject.current` 赋值、`import` 一个被 `exports` 挡住 .d.ts 的子路径——`--noEmit` 全绿，`pnpm build` 直接红。
 
 ### 一键起全栈
 
@@ -90,7 +92,9 @@ cp .env.example .env     # 可选：改端口/密码/填 DEEPSEEK_API_KEY
 - **定时推送**：`push_scheduler` 里两个 job，都自开 `SessionLocal()`、扫活跃情侣、模块级 `_today()` 供测试注入。① `remind_dying_streaks()` 每天单次触发（`streak_reminder_hour`），给火苗「今晚会灭 / 已断可救」的人发；② `remind_unanswered_daily()` 每天触发多次（`daily_reminder_hours`，默认 UTC+8 的 10 点/14 点各一次），给当天还没答每日一问的人发催答（题还没生成也算没答；`tag:"daily"` 和实时那条同 tag 会折叠）。
 - `push_service.send_to_user(user_id, payload)`：核心发送原语，**自开 `SessionLocal()`**（不走请求作用域，供后台任务/定时 job 复用），逐条 `pywebpush.webpush`，404/410 删失效订阅。payload=`{title,body,url,tag}`，`tag` 让 SW 折叠同类通知。
 - **VAPID 密钥**：`app/gen_vapid.py` 生成（`python -m app.gen_vapid`），公钥走 `GET /push/public-key` 下发前端、私钥只在服务端；`config.py` 里空 key = 关闭（同 `deepseek_api_key`）。
-- 前端：`public/sw.js`(手写最小 SW，只处理 push/notificationclick，前台聚焦时抑制)、`main.tsx` 注册、`hooks/usePush.ts`(开关逻辑 + `ensurePushSubscribed` 静默补订)、开关 UI 在「⚙️我」页签。**iOS 需装到主屏幕、需 HTTPS**。
+- 前端：`public/sw.js`(手写最小 SW，处理 push/notificationclick/message，前台聚焦时抑制)、`main.tsx` 注册、`hooks/usePush.ts`(开关逻辑 + `ensurePushSubscribed` 静默补订)、开关 UI 在「⚙️我」页签。**iOS 需装到主屏幕、需 HTTPS**。
+- **主屏图标未读角标（Badging API）**：`navigator.setAppBadge(n)`，iOS 16.4+ 且装到主屏 + 已授通知权限才有（前提与 Web Push 完全重合），不支持则静默跳过。**Web Push 不像 APNs 能靠 payload 自动 +1，数字得自己算**：SW 每次被唤醒都可能是全新全局作用域，所以计数落在 IndexedDB(`couple-badge/kv/unread`)，收一条推送 +1；`notificationclick` 与页面回前台发来的 `postMessage({type:'clear-badge'})` 都会清零（`src/push/appBadge.ts` + `MainShell` 的 `visibilitychange`）。前台聚焦时既不弹通知也不涨角标。服务端全程不参与——它没记「谁读到哪条」，未读是纯客户端概念（另见 `shell/badge.ts` 的页内红点）。
+- `sw.js` 不走打包、没法 import，单测靠把源码读进来在假的 `ServiceWorkerGlobalScope` 里 `new Function(...)` 跑（见 `src/push/sw.test.ts`，`indexedDB` 用 `fake-indexeddb` 的 `new IDBFactory()` 每例一份）。
 
 ### 前端外壳与流程（状态驱动，非路由驱动）
 
