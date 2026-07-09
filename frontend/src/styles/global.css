@@ -97,6 +97,13 @@ input:focus, textarea:focus {
   padding: 10px;
 }
 
+/* ============ 设置项：左边说明，右边开关 ============ */
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* min-width:0 才让长副标题老老实实换行，而不是把按钮挤扁 */
+.setting-text { display: grid; gap: 2px; min-width: 0; }
+/* 开关键不参与收缩，「开启」两个字才不会竖着排 */
+.setting-toggle { flex-shrink: 0; white-space: nowrap; }
+
 /* ============ auth / brand ============ */
 .brand-mark {
   width: 66px; height: 66px; margin: 0 auto;

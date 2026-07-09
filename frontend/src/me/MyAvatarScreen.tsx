@@ -52,13 +52,13 @@ function AiReplyToggle() {
   const busy = me.isLoading || toggle.isPending
   return (
     <div className="card stack" style={{ gap: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-        <div className="stack" style={{ gap: 2 }}>
+      <div className="setting-row">
+        <div className="setting-text">
           <strong>分身回复</strong>
-          <span className="muted tiny">开着时 TA 的分身自动接你的话；关掉就安静等 TA 本尊回你</span>
+          <span className="muted tiny">关掉后分身不接话，等 TA 本尊亲自回你</span>
         </div>
         <button
-          className={enabled ? 'btn-ghost' : 'btn-primary'}
+          className={`setting-toggle ${enabled ? 'btn-ghost' : 'btn-primary'}`}
           onClick={() => toggle.mutate(!enabled)}
           disabled={busy}
         >
@@ -80,13 +80,13 @@ function PushToggle() {
   if (!push.supported) return null
   return (
     <div className="card stack" style={{ gap: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-        <div className="stack" style={{ gap: 2 }}>
+      <div className="setting-row">
+        <div className="setting-text">
           <strong>消息推送</strong>
           <span className="muted tiny">TA 撩你 / 火苗快灭时，关着页面也能收到</span>
         </div>
         <button
-          className={push.enabled ? 'btn-ghost' : 'btn-primary'}
+          className={`setting-toggle ${push.enabled ? 'btn-ghost' : 'btn-primary'}`}
           onClick={() => (push.enabled ? push.turnOff() : push.turnOn())}
           disabled={push.busy}
         >
