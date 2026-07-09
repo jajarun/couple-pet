@@ -1,4 +1,4 @@
-from tests.conftest import auth_headers
+from tests.conftest import auth_headers, enable_ai_reply
 
 
 def _pair(client):
@@ -6,6 +6,9 @@ def _pair(client):
     code = client.post("/couples", headers=ha).json()["pair_code"]
     hb = auth_headers(client, "bob")
     client.post("/couples/join", headers=hb, json={"pair_code": code})
+    # 分身回复默认关闭；这里要的是「每个动作各带一条 ai_reaction」的事件流
+    enable_ai_reply(client, ha)
+    enable_ai_reply(client, hb)
     return ha, hb
 
 

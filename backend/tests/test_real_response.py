@@ -70,6 +70,20 @@ def test_respond_client_key_may_collide_with_an_action_key(client):
     assert r.json()["kind"] == "real_response"
 
 
+def test_can_respond_when_the_avatar_stayed_silent(client):
+    """分身回复默认关闭 → action 没有 ai_reaction 子事件；本尊回应挂在 action 上，照常能回。"""
+    ha, hb = _pair(client)
+    bundle = _scold(client, hb)
+    assert [e["kind"] for e in bundle["events"]] == ["action"]
+    action_id = bundle["events"][0]["id"]
+    r = client.post(
+        f"/events/{action_id}/respond",
+        headers=ha,
+        json={"content": "我自己回", "client_key": "resp1"},
+    )
+    assert r.status_code == 200 and r.json()["kind"] == "real_response"
+
+
 def test_respond_is_idempotent(client):
     ha, hb = _pair(client)
     bundle = _scold(client, hb)

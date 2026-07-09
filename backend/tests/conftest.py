@@ -44,3 +44,8 @@ def auth_headers(client, nickname="alice", password="pw123456"):
     r = register(client, nickname, password)
     token = r.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+def enable_ai_reply(client, headers):
+    """分身回复默认关闭；要分身接话的测试显式打开（顺带跑通 PATCH /auth/me）。"""
+    return client.patch("/auth/me", headers=headers, json={"ai_reply_enabled": True})

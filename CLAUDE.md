@@ -57,11 +57,11 @@ cp .env.example .env     # 可选：改端口/密码/填 DEEPSEEK_API_KEY
 2. **`app/streak_service.py`（及 router 内的编排段）— DB 编排**：行 ↔ 纯函数 state 的转换、落里程碑事件等。**关键：service 层不 commit**（注释「事务由 router 掌管」），只 `flush`。
 3. **`app/routers/*.py` — HTTP + 事务边界**：唯一 `db.commit()` 的地方；并发首建（同一对同一天/同一 client_key 几乎同时到）会撞唯一约束，路由统一 `except IntegrityError → rollback → 重试一次`（见 `daily.py` 的 `_run()`）。
 
-注册的路由（`app/main.py`，无前缀者路径即函数上写的）：`auth`、`couples`、`avatars`、`actions`、`events`、`daily`、`push`，外加 `/health`。**无 Alembic**——启动时 `Base.metadata.create_all(engine)` 幂等建表（`docker-entrypoint.sh` / 应用启动）。`main.py` 有 `lifespan`：仅当配了 VAPID 私钥时起 APScheduler 跑定时提醒（火苗每天 1 次 + 每日一问催答每天 N 次，见下）——**跑在 uvicorn 进程内、依赖单 worker**（改多 worker 会重复触发）。
+注册的路由（`app/main.py`，无前缀者路径即函数上写的）：`auth`、`couples`、`avatars`、`actions`、`events`、`daily`、`push`，外加 `/health`。**无 Alembic**——启动时 `app/schema_sync.py` 的 `sync_schema()` 幂等对齐 schema（`docker-entrypoint.sh` 调）：先 `create_all` 建缺失的表，再按 `_ADDED_COLUMNS` 给**已存在的老表**补新增列。**给老模型加字段时，除了改 `models.py`，必须往 `_ADDED_COLUMNS` 补一行**——`create_all` 只建表、绝不加列，线上库表早就在了，漏了这步线上 `SELECT` 直接报 `Unknown column`。`main.py` 有 `lifespan`：仅当配了 VAPID 私钥时起 APScheduler 跑定时提醒（火苗每天 1 次 + 每日一问催答每天 N 次，见下）——**跑在 uvicorn 进程内、依赖单 worker**（改多 worker 会重复触发）。
 
 ### 数据模型（`app/models.py`）
 
-- `User`：含 `gender`、`ai_count` / `ai_count_date`（AI 每日额度）。
+- `User`：含 `gender`、`ai_reply_enabled`（分身要不要自动接话，**默认 False**）、`ai_count` / `ai_count_date`（AI 每日额度）。
 - `Couple`：`user_a_id` / `user_b_id` / `status`(active/pending) / `pair_code`。
 - `Avatar`：配对后生成**两只镜像分身**，靠 `subject_user_id`（代表谁）+ `keeper_user_id`（谁在养）区分；`appearance` / `persona` 为 JSON。
 - `CoupleStats`：PK=`couple_id`，`stats` **JSON 列**存 `{grievance,dogfood,miss,intimacy}`（改数值 = 复制 dict 再整体赋值，别原地改）。

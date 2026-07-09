@@ -1,5 +1,6 @@
 from sqlalchemy import (
     JSON,
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -21,6 +22,8 @@ class User(Base):
     nickname: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     gender: Mapped[str] = mapped_column(String(8), nullable=True)  # 'male' | 'female'
+    # 分身是否自动接话；关掉则 /actions 不生成 ai_reaction，把话头留给「本尊回应」。默认关。
+    ai_reply_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     ai_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     ai_count_date: Mapped[object] = mapped_column(Date, nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)

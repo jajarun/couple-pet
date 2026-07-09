@@ -140,7 +140,11 @@ def do_action(
     decayed = apply_time_decay(cs.stats, elapsed)
     new_stats, needs_ai, local_reaction = apply_action(decayed, body.action_type)
 
-    if needs_ai:
+    # 「分身回复」关掉时分身彻底不接话（AI 和本地文案都不出），把话头留给「本尊回应」。
+    # 顺带一分 AI 额度都不烧——压根不查 quota。
+    if not user.ai_reply_enabled:
+        reaction_text = None
+    elif needs_ai:
         if ai_quota_available(user, db):
             recent = _recent_context(db, couple.id, user.id, settings.deepseek_recent_context)
             # 分身代表 subject（也就是 TA）——把 TA 的性别喂进人设，让口吻更像本人
@@ -167,16 +171,18 @@ def do_action(
         client_key=body.client_key,
     )
     db.add(action_event)
-    db.flush()  # assign action_event.id for the child
-    reaction_event = Event(
-        couple_id=couple.id,
-        actor_user_id=None,
-        kind="ai_reaction",
-        action_type=body.action_type,
-        content=reaction_text,
-        parent_event_id=action_event.id,
-    )
-    db.add(reaction_event)
+    db.flush()  # assign action_event.id for the children
+    if reaction_text is not None:
+        db.add(
+            Event(
+                couple_id=couple.id,
+                actor_user_id=None,
+                kind="ai_reaction",
+                action_type=body.action_type,
+                content=reaction_text,
+                parent_event_id=action_event.id,
+            )
+        )
 
     if needs_comfort(new_stats):
         db.add(

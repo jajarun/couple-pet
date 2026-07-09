@@ -1,5 +1,5 @@
 import { apiRequest } from './client'
-import { AuthResponse } from './types'
+import { AuthResponse, Me } from './types'
 import { Gender } from '../theme'
 
 export function registerUser(nickname: string, password: string, gender: Gender) {
@@ -7,4 +7,10 @@ export function registerUser(nickname: string, password: string, gender: Gender)
 }
 export function loginUser(nickname: string, password: string) {
   return apiRequest<AuthResponse>('POST', '/auth/login', { nickname, password })
+}
+export function getMe() {
+  return apiRequest<Me>('GET', '/auth/me')
+}
+export function updateMe(patch: { ai_reply_enabled?: boolean }) {
+  return apiRequest<Me>('PATCH', '/auth/me', patch)
 }

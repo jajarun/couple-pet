@@ -1,11 +1,11 @@
 #!/bin/sh
 set -e
 
-# 还没有 Alembic 迁移——启动时按模型建表（幂等，已存在则跳过）。
+# 还没有 Alembic 迁移——启动时按模型对齐 schema：建表 + 给老表补新增列（都幂等）。
 # MySQL 首次启动初始化可能比 healthcheck 稍慢，带重试。
 echo "▶ 确保数据库表存在…"
 tries=0
-until python -c "import app.models; from app.db import Base, engine; Base.metadata.create_all(engine)" 2>/dev/null; do
+until python -c "from app.schema_sync import sync_schema; sync_schema()" 2>/dev/null; do
   tries=$((tries + 1))
   if [ "$tries" -ge 30 ]; then
     echo "✖ 数据库 30 次重试仍不可达，放弃" >&2

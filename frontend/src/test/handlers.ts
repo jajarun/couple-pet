@@ -4,6 +4,10 @@ import { http, HttpResponse } from 'msw'
 // An empty feed by default keeps components that poll useFeed (Home, MainShell)
 // happy without every test having to mock /events.
 export const handlers = [
+  // 分身回复默认关闭；要测「已开启」的用例用 server.use 覆盖
+  http.get('/api/auth/me', () =>
+    HttpResponse.json({ id: 1, nickname: 'alice', gender: 'female', ai_reply_enabled: false }),
+  ),
   http.get('/api/events', () =>
     HttpResponse.json({ events: [], stats: { grievance: 0, dogfood: 0, miss: 0, intimacy: 0 } }),
   ),

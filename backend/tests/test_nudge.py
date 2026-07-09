@@ -47,3 +47,10 @@ def test_nudge_needs_a_captured_pet(client):
 def test_nudge_requires_active_couple(client):
     h = auth_headers(client, "solo")
     assert client.post("/nudge", headers=h).json()["event"] is None
+
+
+def test_nudge_ignores_the_ai_reply_switch(client):
+    """「分身回复」默认关闭（_pair_ready 没开），主动撩人照样触发。"""
+    ha, hb = _pair_ready(client)
+    ev = client.post("/nudge", headers=hb).json()["event"]
+    assert ev is not None and ev["action_type"] == "nudge"

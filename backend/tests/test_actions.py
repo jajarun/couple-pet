@@ -1,14 +1,17 @@
 from app.rules.actions import LOCAL_REACTIONS
-from tests.conftest import auth_headers
+from tests.conftest import auth_headers, enable_ai_reply
 
 
-def _pair(client):
+def _pair(client, ai_reply=True):
     ha = auth_headers(client, "alice")
     code = client.post("/couples", headers=ha).json()["pair_code"]
     hb = auth_headers(client, "bob")
     client.post("/couples/join", headers=hb, json={"pair_code": code})
     # alice sets her persona so the stub reaction is in-persona
     client.put("/avatars/mine", headers=ha, json={"persona": {"tone": "毒舌"}})
+    if ai_reply:  # 分身回复默认关闭，这批用例要的是「分身接话」的行为
+        enable_ai_reply(client, ha)
+        enable_ai_reply(client, hb)
     return ha, hb
 
 
@@ -127,6 +130,45 @@ def test_content_length_capped(client):
     ha, hb = _pair(client)
     r = _act(client, hb, "chat", "k1", "x" * 1001)
     assert r.status_code == 422
+
+
+def test_reply_disabled_by_default_produces_no_ai_reaction(client):
+    ha, hb = _pair(client, ai_reply=False)
+    r = _act(client, hb, "scold", "k1", "大猪蹄子")
+    assert r.status_code == 200
+    body = r.json()
+    kinds = [e["kind"] for e in body["events"]]
+    assert kinds == ["action"]  # 分身彻底不接话
+    assert body["stats"]["grievance"] == 15  # 数值照常结算
+
+
+def test_enabling_reply_brings_the_avatar_back(client):
+    ha, hb = _pair(client, ai_reply=False)
+    assert [e["kind"] for e in _act(client, hb, "poke", "k1").json()["events"]] == ["action"]
+    enable_ai_reply(client, hb)
+    kinds = [e["kind"] for e in _act(client, hb, "poke", "k2").json()["events"]]
+    assert "ai_reaction" in kinds
+
+
+def test_disabled_reply_burns_no_ai_quota(client, monkeypatch):
+    ha, hb = _pair(client, ai_reply=False)
+    import app.routers.actions as m
+
+    calls = []
+    monkeypatch.setattr(m, "ai_quota_available", lambda user, db: calls.append("check") or True)
+    monkeypatch.setattr(m, "record_ai_usage", lambda user, db: calls.append("charge"))
+    _act(client, hb, "scold", "k1", "大猪蹄子")  # scold 本是 AI 动作
+    assert calls == []  # 关掉后连额度都不查，更不会扣
+
+
+def test_switch_is_per_keeper(client):
+    """决策 3：开关管「我养的那只分身」，各管各的观看体验。"""
+    ha, hb = _pair(client, ai_reply=False)
+    enable_ai_reply(client, hb)  # 只有 bob 开
+    bob_kinds = [e["kind"] for e in _act(client, hb, "poke", "kb").json()["events"]]
+    alice_kinds = [e["kind"] for e in _act(client, ha, "poke", "ka").json()["events"]]
+    assert "ai_reaction" in bob_kinds
+    assert "ai_reaction" not in alice_kinds
 
 
 def test_local_reactions_are_plentiful_and_unique():

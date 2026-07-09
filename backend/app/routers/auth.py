@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.deps import get_current_user
 from app.models import User
 from app.security import create_access_token, hash_password, verify_password
 from app.time_utils import utcnow
@@ -23,19 +24,31 @@ class LoginIn(BaseModel):
     password: str
 
 
+class MeUpdateIn(BaseModel):
+    ai_reply_enabled: Optional[bool] = None  # PATCH 语义：None = 这个字段不动
+
+
 class UserOut(BaseModel):
     id: int
     nickname: str
     gender: Optional[str] = None
+    ai_reply_enabled: bool
+
+
+def _user_out(user: User) -> dict:
+    return UserOut(
+        id=user.id,
+        nickname=user.nickname,
+        gender=user.gender,
+        ai_reply_enabled=user.ai_reply_enabled,
+    ).model_dump()
 
 
 def _token_response(user: User) -> dict:
     return {
         "access_token": create_access_token(sub=str(user.id)),
         "token_type": "bearer",
-        "user": UserOut(
-            id=user.id, nickname=user.nickname, gender=user.gender
-        ).model_dump(),
+        "user": _user_out(user),
     }
 
 
@@ -63,3 +76,20 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
     user.last_login_at = utcnow()
     db.commit()
     return _token_response(user)
+
+
+@router.get("/me")
+def me(user: User = Depends(get_current_user)):
+    return _user_out(user)
+
+
+@router.patch("/me")
+def update_me(
+    body: MeUpdateIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if body.ai_reply_enabled is not None:
+        user.ai_reply_enabled = body.ai_reply_enabled
+    db.commit()  # router 是唯一事务边界
+    return _user_out(user)

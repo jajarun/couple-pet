@@ -3,6 +3,10 @@ export interface AuthUser {
   nickname: string
   gender?: 'male' | 'female' | null
 }
+/** GET/PATCH /auth/me 的返回。开关状态以服务端为准，别从 AuthContext 缓存的 user 上读。 */
+export interface Me extends AuthUser {
+  ai_reply_enabled: boolean
+}
 export interface AuthResponse {
   access_token: string
   token_type: string
