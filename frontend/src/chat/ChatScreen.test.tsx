@@ -1,10 +1,33 @@
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { test, expect } from 'vitest'
+import { test, expect, vi } from 'vitest'
 import { server } from '../test/server'
 import { renderWithProviders } from '../test/utils'
 import { ChatScreen } from './ChatScreen'
+
+/**
+ * 断言「请求没发出去」得先等一等：mutate() 到 MSW handler 真正跑起来隔着好几个 tick，
+ * 同步 expect 一律会绿——那种测试挡不住任何回归。
+ */
+const settle = () => new Promise((r) => setTimeout(r, 20))
+
+/** 桩掉 POST /api/actions 并数一数它被调了几次 */
+function countSends() {
+  const sent = vi.fn()
+  server.use(
+    http.post('/api/actions', async ({ request }) => {
+      sent((await request.json()) as { content?: string })
+      return HttpResponse.json({
+        events: [
+          { id: 30, couple_id: 1, actor_user_id: 1, kind: 'action', action_type: 'chat', content: '在吗', parent_event_id: null, created_at: 't' },
+        ],
+        stats: { grievance: 0, dogfood: 0, miss: 0, intimacy: 0 },
+      })
+    }),
+  )
+  return sent
+}
 
 test('sending a chat message shows my bubble and the avatar reply', async () => {
   server.use(
@@ -24,6 +47,82 @@ test('sending a chat message shows my bubble and the avatar reply', async () => 
   await userEvent.click(screen.getByRole('button', { name: '发送' }))
   expect(await screen.findByText('在的在的，永远在。')).toBeInTheDocument()
   await waitFor(() => expect(screen.getByText('在吗')).toBeInTheDocument())
+})
+
+test('按回车就发送，发完清空输入框', async () => {
+  const sent = countSends()
+  renderWithProviders(<ChatScreen coupleId={1} myUserId={1} partnerId={2} />)
+  const input = (await screen.findByLabelText('聊天输入')) as HTMLInputElement
+
+  await userEvent.type(input, '在吗{Enter}')
+
+  await waitFor(() => expect(sent).toHaveBeenCalledTimes(1))
+  expect(sent.mock.calls[0][0]).toMatchObject({ action_type: 'chat', content: '在吗' })
+  await waitFor(() => expect(input.value).toBe(''))
+})
+
+test('中文输入法选字时的回车不算发送（isComposing）', async () => {
+  const sent = countSends()
+  renderWithProviders(<ChatScreen coupleId={1} myUserId={1} partnerId={2} />)
+  const input = await screen.findByLabelText('聊天输入')
+  await userEvent.type(input, 'zaima')
+
+  // 候选词框还开着，这一下回车是「确认选字」，不该把拼音发出去
+  fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+  await settle()
+  expect(sent).not.toHaveBeenCalled()
+
+  // 选完字再敲一下，这次才真发
+  fireEvent.keyDown(input, { key: 'Enter' })
+  await waitFor(() => expect(sent).toHaveBeenCalledTimes(1))
+})
+
+test('中文输入法选字时的回车不算发送（老安卓的 keyCode 229）', async () => {
+  const sent = countSends()
+  renderWithProviders(<ChatScreen coupleId={1} myUserId={1} partnerId={2} />)
+  const input = await screen.findByLabelText('聊天输入')
+  await userEvent.type(input, 'zaima')
+
+  // 老安卓输入法不给 isComposing，只把 keyCode 塞成 229
+  fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })
+  await settle()
+  expect(sent).not.toHaveBeenCalled()
+})
+
+test('空输入按回车什么也不发', async () => {
+  const sent = countSends()
+  renderWithProviders(<ChatScreen coupleId={1} myUserId={1} partnerId={2} />)
+  const input = await screen.findByLabelText('聊天输入')
+
+  await userEvent.type(input, '{Enter}')
+  await userEvent.type(input, '   {Enter}') // 只有空格也不行
+  await settle()
+  expect(sent).not.toHaveBeenCalled()
+})
+
+test('上一条还在飞的时候，回车不会再发一条', async () => {
+  let release = () => {}
+  const inFlight = new Promise<void>((r) => (release = r))
+  const sent = vi.fn()
+  server.use(
+    http.post('/api/actions', async () => {
+      sent()
+      await inFlight // 卡住不回，模拟慢网
+      return HttpResponse.json({ events: [], stats: { grievance: 0, dogfood: 0, miss: 0, intimacy: 0 } })
+    }),
+  )
+  renderWithProviders(<ChatScreen coupleId={1} myUserId={1} partnerId={2} />)
+  const input = await screen.findByLabelText('聊天输入')
+
+  await userEvent.type(input, '在吗{Enter}')
+  await waitFor(() => expect(sent).toHaveBeenCalledTimes(1))
+
+  await userEvent.keyboard('{Enter}') // 文字还在框里、请求还没回来
+  await settle()
+  expect(sent).toHaveBeenCalledTimes(1)
+
+  release()
+  await waitFor(() => expect(screen.getByLabelText('聊天输入')).toHaveValue(''))
 })
 
 test('输入框为空时发送键是禁用的', async () => {

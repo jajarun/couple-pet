@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react'
 import { useFeed, useLoadOlder } from '../hooks/useFeed'
 import { useAction } from '../hooks/useAction'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
@@ -83,7 +83,7 @@ export function ChatScreen({
   }, [oldestLoaded])
 
   const send = () => {
-    if (!text.trim()) return
+    if (action.isPending || !text.trim()) return
     setSendErr('')
     action.mutate(
       { action_type: 'chat', content: text.trim(), client_key: key.next() },
@@ -96,6 +96,16 @@ export function ChatScreen({
         onError: () => setSendErr('（消息卡在半路了，分身正在找信号…）'),
       },
     )
+  }
+
+  // 回车发送。中文输入法敲回车是「确认候选词」，那一下绝不能当发送——
+  // 靠原生事件的 isComposing 判定（React 合成事件上没有这个字段），
+  // 老安卓输入法不给 isComposing、只给 keyCode 229，一并挡掉。
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
+    e.preventDefault()
+    send()
   }
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -228,6 +238,8 @@ export function ChatScreen({
               aria-label="聊天输入"
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={onKeyDown}
+              enterKeyHint="send"
               placeholder="随便唠两句…"
             />
             <EmojiPicker onPick={insertEmoji} disabled={action.isPending} />
