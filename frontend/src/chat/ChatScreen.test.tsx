@@ -61,6 +61,48 @@ test('按回车就发送，发完清空输入框', async () => {
   await waitFor(() => expect(input.value).toBe(''))
 })
 
+test('回车发出去就把输入框失焦（手机上等于收起输入法）', async () => {
+  const sent = countSends()
+  renderWithProviders(<ChatScreen coupleId={1} myUserId={1} partnerId={2} />)
+  const input = await screen.findByLabelText('聊天输入')
+
+  await userEvent.type(input, '在吗')
+  expect(input).toHaveFocus()
+
+  await userEvent.keyboard('{Enter}')
+  expect(input).not.toHaveFocus()
+  await waitFor(() => expect(sent).toHaveBeenCalledTimes(1))
+})
+
+test('点发送键也收输入法', async () => {
+  countSends()
+  renderWithProviders(<ChatScreen coupleId={1} myUserId={1} partnerId={2} />)
+  const input = await screen.findByLabelText('聊天输入')
+  // jsdom 里点按钮本来就会把焦点挪走，盯 blur() 有没有被调才测得到我们自己那行
+  const blur = vi.spyOn(input, 'blur')
+
+  await userEvent.type(input, '在吗')
+  await userEvent.click(screen.getByRole('button', { name: '发送' }))
+  expect(blur).toHaveBeenCalled()
+})
+
+test('空输入按回车不收输入法（压根没发，别把键盘收了）', async () => {
+  renderWithProviders(<ChatScreen coupleId={1} myUserId={1} partnerId={2} />)
+  const input = await screen.findByLabelText('聊天输入')
+
+  await userEvent.type(input, '   {Enter}')
+  expect(input).toHaveFocus()
+})
+
+test('选字中的回车不收输入法', async () => {
+  renderWithProviders(<ChatScreen coupleId={1} myUserId={1} partnerId={2} />)
+  const input = await screen.findByLabelText('聊天输入')
+  await userEvent.type(input, 'zaima')
+
+  fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+  expect(input).toHaveFocus() // 还在挑候选词呢，键盘不能跑
+})
+
 test('中文输入法选字时的回车不算发送（isComposing）', async () => {
   const sent = countSends()
   renderWithProviders(<ChatScreen coupleId={1} myUserId={1} partnerId={2} />)

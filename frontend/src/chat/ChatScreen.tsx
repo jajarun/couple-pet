@@ -82,9 +82,15 @@ export function ChatScreen({
     }
   }, [oldestLoaded])
 
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const send = () => {
     if (action.isPending || !text.trim()) return
     setSendErr('')
+    // 发出去的同时就收键盘（blur 是 iOS 上唯一能收起软键盘的办法）。
+    // 必须在这儿收、不能等 onSuccess：键盘落下会把可视区撑高，
+    // 回复到了才滚到底的话，正好赶在布局稳定之后，滚得准。
+    inputRef.current?.blur()
     action.mutate(
       { action_type: 'chat', content: text.trim(), client_key: key.next() },
       {
@@ -107,8 +113,6 @@ export function ChatScreen({
     e.preventDefault()
     send()
   }
-
-  const inputRef = useRef<HTMLInputElement>(null)
 
   // 表情插在光标处（不是傻追加到末尾），插完把光标落到表情后面，接着打字不跳走
   const insertEmoji = (emoji: string) => {
