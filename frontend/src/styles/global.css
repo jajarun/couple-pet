@@ -394,25 +394,23 @@ input[type='checkbox'] {
 
 /* ============ 火苗 + 每日一问 ============ */
 
-/* 火苗条：首页顶部的连续打卡状态，紧凑药丸条 */
-.fire-bar {
-  display: flex;
+/* 火苗 chip：连续打卡天数，嵌在每日一问卡的标题行右边（原先独占一整行的药丸条） */
+.fire-chip {
+  flex-shrink: 0;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  width: fit-content;
-  max-width: 100%;
-  background: var(--surface);
+  gap: 4px;
+  background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
-  box-shadow: var(--shadow-1);
-  padding: 8px 14px;
-  font-size: 14px;
+  padding: 3px 9px;
+  font-size: 12.5px;
   color: var(--ink);
 }
-.fire-bar b { font-weight: 800; }
-.fire-emoji { font-size: 17px; line-height: 1; }
+.fire-chip b { font-weight: 800; }
+.fire-emoji { font-size: 14px; line-height: 1; }
 .fire-hint {
-  color: var(--ink-2);
+  color: var(--warn);
   font-size: 12.5px;
   font-weight: 600;
   overflow: hidden;
@@ -420,14 +418,14 @@ input[type='checkbox'] {
   white-space: nowrap;
 }
 /* 快断了 → 用 warn 提醒紧迫感，但仍保持柔和 */
-.fire-bar.at-risk {
+.fire-chip.at-risk {
   border-color: var(--warn);
+  color: var(--warn);
   background: color-mix(in srgb, var(--warn) 8%, var(--surface));
 }
-.fire-bar.at-risk .fire-hint { color: var(--warn); }
 /* 续火按钮:跟随性别主题的小药丸,可救时露出 */
 .fire-rescue {
-  margin-left: 4px;
+  flex-shrink: 0;
   padding: 5px 12px;
   border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
   border-radius: var(--r-pill);
@@ -444,7 +442,7 @@ input[type='checkbox'] {
 .fire-rescue:active { transform: scale(0.96); }
 .fire-rescue:disabled { opacity: 0.6; cursor: default; }
 
-/* 每日一问卡片（首页） */
+/* 每日一问卡片（首页）——火苗 chip 和折叠键都挤在标题这一行里 */
 .daily-card {
   background: var(--surface);
   border-radius: var(--r);
@@ -453,11 +451,45 @@ input[type='checkbox'] {
   display: grid;
   gap: 10px;
 }
+.daily-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* min-width:0 才让标题老实换行，而不是把右边的 chip 和折叠键挤成竖排（同 .setting-row 的坑） */
 .daily-title {
+  flex: 1;
+  min-width: 0;
   font-size: 12.5px;
   font-weight: 700;
   color: var(--ink-2);
 }
+/* 看/收答案：展开后退成中性色，别跟主题色的答案气泡抢眼 */
+.daily-peek {
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-height: auto;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  border-radius: var(--r-pill);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+.daily-peek[aria-expanded='true'] {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+/* 火苗告急提示 + 续火按钮，只在 hint 非空时才占这一行 */
+.daily-fire {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.daily-fire .fire-hint { flex: 1; min-width: 0; }
 .daily-q {
   font-size: 16.5px;
   font-weight: 600;
@@ -473,7 +505,18 @@ input[type='checkbox'] {
   font-size: 14px;
   font-weight: 600;
 }
-.daily-reveal { display: grid; gap: 6px; }
+.daily-reveal {
+  display: grid;
+  gap: 6px;
+  animation: daily-pop 0.16s ease-out;
+}
+@keyframes daily-pop {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .daily-reveal { animation: none; }
+}
 .daily-ans {
   border-radius: var(--r-sm);
   padding: 9px 12px;

@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { StatDashboard } from './StatDashboard'
 import { ActionBar } from './ActionBar'
-import { FireBar } from './FireBar'
-import { DailyQuestionCard } from './DailyQuestionCard'
+import { DailyCard } from './DailyCard'
 import { PetSprite } from '../components/PetSprite'
 import { SpeechBubble } from '../components/SpeechBubble'
 import { LoadingBanter } from '../components/LoadingBanter'
@@ -109,8 +108,7 @@ export function HomeScreen({ coupleId, partnerId }: { coupleId: number; partnerI
   return (
     <div className="screenview">
       <div className="screenview-body pad stack" style={{ gap: 14 }}>
-        <FireBar coupleId={coupleId} />
-        <DailyQuestionCard coupleId={coupleId} />
+        <DailyCard coupleId={coupleId} />
         <StatDashboard coupleId={coupleId} />
 
         <div className="pet-stage">
