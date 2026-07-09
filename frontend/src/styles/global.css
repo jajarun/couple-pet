@@ -279,8 +279,69 @@ input[type='checkbox'] {
 
 /* ============ chat timeline ============ */
 .chat-log { display: flex; flex-direction: column; gap: 3px; }
+
+/* 输入栏：表情键内嵌在输入框右缘，发送键是独立的圆形主色键 */
 .chat-bar { display: flex; gap: 8px; align-items: center; }
-.chat-bar input { flex: 1; }
+.chat-field { position: relative; flex: 1; display: flex; }
+.chat-field input { flex: 1; padding-right: 46px; }   /* 给内嵌的表情键让位 */
+
+.emoji-trigger {
+  position: absolute;
+  right: 6px; top: 50%;
+  transform: translateY(-50%);
+  width: 34px; height: 34px;
+  min-height: auto; padding: 0;
+  display: grid; place-items: center;
+  border: none; background: transparent;
+  color: var(--ink-3);
+  border-radius: 50%;
+}
+/* 全局的 button:active{scale} 会顶掉这里的居中位移，得连着 translateY 一起写 */
+.emoji-trigger:active { transform: translateY(-50%) scale(0.9); }
+.emoji-trigger[aria-expanded='true'] { background: var(--primary-soft); color: var(--primary-strong); }
+
+/* 发送键：正圆，纸飞机描边继承 --primary-ink（男蓝/中性=白，女粉=深玫瑰，保证可读） */
+.chat-send {
+  flex-shrink: 0;
+  width: var(--tap); height: var(--tap);
+  padding: 0; border-radius: 50%;
+  display: grid; place-items: center;
+}
+/* 纸飞机的视觉重心偏左下，往右上顶一点点才像「居中」 */
+.chat-send svg { transform: translate(-1px, 1px); transition: transform 0.16s ease; }
+.chat-send:not(:disabled):active svg { transform: translate(2px, -2px); }  /* 按下时飞机往外窜 */
+
+/* 表情面板：贴着输入框上沿弹出，从右下角展开（就是触发键的位置） */
+.emoji-panel {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0; right: 0;
+  z-index: 20;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-1);
+  padding: 12px;
+  display: grid; gap: 10px;
+  max-height: 42vh; overflow-y: auto;
+  transform-origin: 100% 100%;
+  animation: emoji-pop 0.14s ease-out;
+}
+@keyframes emoji-pop {
+  from { opacity: 0; transform: scale(0.94) translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.emoji-group { display: grid; gap: 6px; }
+.emoji-group-label { font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; }
+.emoji-cell {
+  min-height: 44px; padding: 0;                        /* 拇指够得着 */
+  border: none; background: transparent;
+  border-radius: var(--r-sm);
+  font-size: 24px; line-height: 1;
+}
+.emoji-cell:hover { background: var(--primary-soft); }
+.emoji-cell:active { background: var(--primary-soft); transform: scale(0.88); }
 
 .msg-row { display: flex; }
 .msg-row.left { justify-content: flex-start; }

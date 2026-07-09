@@ -4,6 +4,8 @@ import { useAction } from '../hooks/useAction'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { LoadingBanter } from '../components/LoadingBanter'
 import { useAutoScrollBottom } from '../hooks/useAutoScrollBottom'
+import { PaperPlaneIcon } from '../components/icons'
+import { EmojiPicker } from './EmojiPicker'
 import { GameEvent } from '../api/types'
 import { Gender } from '../theme'
 
@@ -94,6 +96,25 @@ export function ChatScreen({
         onError: () => setSendErr('（消息卡在半路了，分身正在找信号…）'),
       },
     )
+  }
+
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // 表情插在光标处（不是傻追加到末尾），插完把光标落到表情后面，接着打字不跳走
+  const insertEmoji = (emoji: string) => {
+    const el = inputRef.current
+    if (!el) {
+      setText((t) => t + emoji)
+      return
+    }
+    const start = el.selectionStart ?? text.length
+    const end = el.selectionEnd ?? text.length
+    setText(text.slice(0, start) + emoji + text.slice(end))
+    requestAnimationFrame(() => {
+      el.focus()
+      const caret = start + emoji.length
+      el.setSelectionRange(caret, caret)
+    })
   }
 
   const bubble = (side: 'left' | 'right', variant: 'real' | 'ai', g: string, content: string, label?: string) => (
@@ -201,8 +222,24 @@ export function ChatScreen({
       <div className="screenview-dock stack" style={{ gap: 8 }}>
         {sendErr && <div role="alert" style={{ color: 'var(--warn)' }}>{sendErr}</div>}
         <div className="chat-bar">
-          <input aria-label="聊天输入" value={text} onChange={(e) => setText(e.target.value)} placeholder="随便唠两句…" />
-          <button className="btn-primary" onClick={send} disabled={action.isPending}>发</button>
+          <div className="chat-field">
+            <input
+              ref={inputRef}
+              aria-label="聊天输入"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="随便唠两句…"
+            />
+            <EmojiPicker onPick={insertEmoji} disabled={action.isPending} />
+          </div>
+          <button
+            className="btn-primary chat-send"
+            onClick={send}
+            disabled={action.isPending || !text.trim()}
+            aria-label="发送"
+          >
+            <PaperPlaneIcon />
+          </button>
         </div>
       </div>
     </div>
