@@ -44,7 +44,7 @@ export function ChatScreen({
   const [sendErr, setSendErr] = useState('')
 
   const events = feed.data?.events ?? []
-  const endRef = useAutoScrollBottom(events.length + (action.isPending ? 1 : 0))
+  const endRef = useAutoScrollBottom(events.length, action.isPending)
   const byId = new Map(events.map((e) => [e.id, e]))
 
   // daily_qa：答案子事件按父题 id 归组，父题出卡时并入渲染

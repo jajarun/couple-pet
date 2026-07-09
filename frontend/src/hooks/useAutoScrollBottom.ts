@@ -15,10 +15,12 @@ function scrollParent(el: HTMLElement | null): HTMLElement | null {
  * at the bottom on open and follow new items — only while the user is already
  * parked near the bottom, so scrolling up to read history is never yanked away.
  *
- * `count` is the number of items; pass a value that changes whenever the list grows.
- * Returns a ref to drop on a zero-height sentinel at the end of the list.
+ * `count` 是列表条数；`pending` 是「底部还挂着一个占位（如加载中）」。
+ * 两者必须分开传，别自己加成一个数——`count+1 / pending` 和 `count / 无 pending`
+ * 会算出同一个值，发送完最后一条时就不滚了（分身不接话时只多 1 条事件，正好撞上）。
+ * 返回一个 ref，挂在列表末尾的零高度哨兵上。
  */
-export function useAutoScrollBottom(count: number) {
+export function useAutoScrollBottom(count: number, pending = false) {
   const endRef = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const landed = useRef(false)
@@ -45,7 +47,7 @@ export function useAutoScrollBottom(count: number) {
     } else if (stick.current) {
       end.scrollIntoView({ block: 'end', inline: 'nearest', behavior: reduce ? 'auto' : 'smooth' })
     }
-  }, [count])
+  }, [count, pending])
 
   return endRef
 }
