@@ -1,3 +1,4 @@
 # 根级忽略（各子目录另有自己的 .gitignore）
 .env
 frontend/dist/
+push.sh
