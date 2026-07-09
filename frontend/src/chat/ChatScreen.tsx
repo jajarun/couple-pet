@@ -7,19 +7,8 @@ import { useAutoScrollBottom } from '../hooks/useAutoScrollBottom'
 import { PaperPlaneIcon } from '../components/icons'
 import { EmojiPicker } from './EmojiPicker'
 import { GameEvent } from '../api/types'
+import { verbOf } from '../actions'
 import { Gender } from '../theme'
-
-// Verb templates: {o} = the person on the receiving end (the non-actor).
-const ACTION_VERB: Record<string, (o: string) => string> = {
-  scold: (o) => `骂了${o}`,
-  poke: (o) => `戳了${o}`,
-  feed_dogfood: () => '喂了狗粮',
-  hug: (o) => `抱了${o}`,
-  miss_you: (o) => `说想${o}`,
-  apologize: () => '道了歉',
-  chat: (o) => `找${o}唠`,
-  coax: (o) => `把${o}哄回家了`,
-}
 
 function genderClass(g?: Gender | null): string {
   return g === 'male' ? 'g-male' : g === 'female' ? 'g-female' : 'g-neutral'
@@ -165,6 +154,14 @@ export function ChatScreen({
         </div>
       )
 
+    // 剧情副本打完了，留个纪念条（没有 actor，居中显示）
+    if (ev.kind === 'story')
+      return (
+        <div key={ev.id} className="tip story" role="note">
+          <span>🎭 你们一起打完了《{ev.content}》</span>
+        </div>
+      )
+
     // 分身主动撩你（nudge）：只显示冲着「我」来的那条（actor = 说话分身的 subject = TA）
     if (ev.kind === 'ai_reaction' && ev.action_type === 'nudge') {
       if (partnerId != null && ev.actor_user_id !== partnerId) return null
@@ -202,8 +199,7 @@ export function ChatScreen({
     // non-chat action → inline tip
     const who = mine ? '你' : 'TA'
     const other = mine ? 'TA' : '你'
-    const make = ev.action_type ? ACTION_VERB[ev.action_type] : undefined
-    const verb = make ? make(other) : '做了个动作'
+    const verb = verbOf(ev.action_type, other)
     return (
       <div key={ev.id} className="tip">
         <span>

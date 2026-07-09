@@ -30,6 +30,26 @@ test('submitting captures name/appearance/persona (tone 多选) via PUT', async 
   })
 })
 
+test('造型收在抽屉里；点分身挑一个，提交时带上它', async () => {
+  let body: { appearance: Record<string, unknown> } | null = null
+  server.use(
+    http.put('/api/avatars/mine', async ({ request }) => {
+      body = (await request.json()) as typeof body
+      return HttpResponse.json({ id: 1, couple_id: 1, subject_user_id: 1, keeper_user_id: 2 })
+    }),
+  )
+  renderWithProviders(<AvatarCreateScreen />)
+  expect(screen.queryByLabelText('emoji-🦊')).not.toBeInTheDocument() // 不占页面
+
+  await userEvent.click(screen.getByLabelText('换造型，当前 🐷')) // 默认是清单第一个
+  await userEvent.click(await screen.findByLabelText('emoji-🦊'))
+  await userEvent.type(screen.getByLabelText('名字'), '臭宝')
+  await userEvent.click(screen.getByRole('button', { name: '就它了' }))
+
+  await waitFor(() => expect(body).not.toBeNull())
+  expect(body!.appearance).toMatchObject({ emoji: '🦊' })
+})
+
 test('基调最多选 3 个、且至少留 1 个', async () => {
   renderWithProviders(<AvatarCreateScreen />)
   // 默认「毒舌」已选，再点两个凑满 3 个

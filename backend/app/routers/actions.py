@@ -4,13 +4,15 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app import evolution_service, push_service, runaway_service, streak_service
+from app import evolution_service, presence_service, push_service, runaway_service, streak_service
 from app.ai.deepseek import generate_reaction
+from app.ai.dream import generate_runaway_note
 from app.ai.quota import ai_quota_available, record_ai_usage
 from app.config import settings
 from app.db import get_db
 from app.deps import get_active_couple, get_current_user
 from app.models import Avatar, CoupleStats, Event, User
+from app.rules import runaway
 from app.rules.actions import ACTION_TYPES, LOCAL_REACTIONS, NUDGE_LINES, apply_action
 from app.rules.stats import apply_time_decay, needs_comfort
 from app.time_utils import utcnow
@@ -29,7 +31,7 @@ _EVOLVE_TEXT = {
     3: "👑 完全体达成！这只分身被你养到头了。",
 }
 
-# 对方发动作时给 TA（另一半）推的一句话
+# 对方发动作时给 TA（另一半）推的一句话。coax 不在这儿——它有自己的推送分支（见下）
 _ACTION_PUSH = {
     "scold": "TA 骂你了 😤",
     "poke": "TA 戳了你一下 👉",
@@ -38,11 +40,34 @@ _ACTION_PUSH = {
     "miss_you": "TA 说想你了 🥺",
     "apologize": "TA 跟你道歉了 🙇",
     "chat": "TA 找你唠嗑 💬",
-    "coax": "TA 把分身哄回家了 🪹",
+    "headpat": "TA 隔空摸了摸你的头 🫳",
+}
+
+# 出走三态里、要推给「分身代表的那个人」（也就是发动作者的另一半）的两条。
+# 跑掉那一刻不推 keeper——TA 正盯着屏幕，界面当场就换成空窝了。
+_BOLTED_PUSH = {
+    "title": "🪹 TA 把「你」气跑了",
+    "body": "一小时里骂了五次，那只代表你的分身留下纸条就跑了。",
+    "url": "/",
+    "tag": "runaway",
+}
+_COAX_PUSH = {
+    "title": "🥺 TA 在哄你回家",
+    "body": "分身要不要回去，得你点头。",
+    "url": "/",
+    "tag": "runaway",
 }
 
 # 分身跑了，除了「哄」什么都做不了。前端会先切成 RunawayScreen，这里是防多端竞态的兜底。
 PET_AWAY_DETAIL = "pet_away"
+
+# 哄过了、正等对方点头：这期间**连「哄」都拦**，否则 coax 的「委屈 −30 / 亲密 +5」
+# 能在等待期里无限刷。
+AWAITING_FORGIVENESS_DETAIL = "awaiting_forgiveness"
+
+# 摸摸头只在两人同框时存在。前端在对方下线时就把这个键藏了，这里是防多端/直接打接口的兜底。
+NOT_TOGETHER_DETAIL = "not_together"
+TOGETHER_MULTIPLIER = 2  # 当着面，什么都更疼也更甜
 
 
 class ActionIn(BaseModel):
@@ -65,7 +90,14 @@ def event_out(ev: Event) -> dict:
 
 
 def _bundle(
-    db: Session, couple_id: int, action_event: Event, stats: dict, evo: dict, evolved: bool
+    db: Session,
+    couple_id: int,
+    action_event: Event,
+    stats: dict,
+    evo: dict,
+    evolved: bool,
+    together: bool,
+    ran_away: bool = False,
 ) -> dict:
     children = (
         db.query(Event)
@@ -74,12 +106,16 @@ def _bundle(
         .all()
     )
     events = [action_event] + children
-    # evolved 让前端放全屏进化动画；evolution 喂给首页的进度条
+    # evolved 让前端放全屏进化动画；evolution 喂给首页的进度条；
+    # together 是「TA 此刻在不在」的即时标志（不是这次动作的历史记录），驱动首页的同框态；
+    # ran_away = 就是这一下把它逼走的（纸条事件不挂 parent，不在 events 里）→ 前端重取 /avatars/pet
     return {
         "events": [event_out(e) for e in events],
         "stats": stats,
         "evolution": evo,
         "evolved": evolved,
+        "together": together,
+        "ran_away": ran_away,
     }
 
 
@@ -152,6 +188,9 @@ def do_action(
         .filter(Avatar.couple_id == couple.id, Avatar.keeper_user_id == user.id)
         .first()
     )
+    now = utcnow()
+    # 只读对方的心跳（心跳只由 POST /presence 写）。同框 = 两人此刻都开着页面。
+    together = presence_service.partner_online(db, couple, user.id, now)
 
     # 幂等：同一 (couple, client_key) 直接返回既有 bundle。**不能再 bump 一次经验**——
     # 重试/连点不该让分身白长一截。
@@ -166,23 +205,39 @@ def do_action(
     )
     if existing is not None:
         cs = db.get(CoupleStats, couple.id)
-        return _bundle(db, couple.id, existing, cs.stats, evolution_service.build_view(pet), False)
+        evo = evolution_service.build_view(pet)
+        return _bundle(db, couple.id, existing, cs.stats, evo, False, together)
 
-    # 分身跑了就只剩「哄」这一条路。coax 落库后 id > runaway id，is_away 自动翻假 → 它回来了。
-    if body.action_type != "coax" and runaway_service.is_pet_away(db, couple.id, user.id):
+    # 分身跑了就只剩「哄」这一条路；哄完在等对方点头，那连哄都别再点了。
+    pet_state = runaway_service.pet_state(db, couple.id, user.id)
+    if pet_state == runaway.PENDING:
+        raise HTTPException(status.HTTP_409_CONFLICT, AWAITING_FORGIVENESS_DETAIL)
+    if pet_state == runaway.AWAY and body.action_type != "coax":
         raise HTTPException(status.HTTP_409_CONFLICT, PET_AWAY_DETAIL)
+
+    # 摸摸头是同框限定：TA 一下线这个键就该消失。放在幂等早返回之后——
+    # 同框时发出的那一下，重放时不该因为 TA 刚下线就被打回。
+    if body.action_type == "headpat" and not together:
+        raise HTTPException(status.HTTP_409_CONFLICT, NOT_TOGETHER_DETAIL)
 
     cs = db.get(CoupleStats, couple.id)
 
-    now = utcnow()
     elapsed = (now - cs.stats_updated_at).total_seconds()
     decayed = apply_time_decay(cs.stats, elapsed)
-    new_stats, needs_ai, local_reaction = apply_action(decayed, body.action_type)
+    new_stats, needs_ai, local_reaction = apply_action(
+        decayed, body.action_type, TOGETHER_MULTIPLIER if together else 1
+    )
+
+    # 这一下会不会把它逼走（1 小时内骂满 5 次、一次没哄）。**在 AI 之前问**：
+    # 它要走就不回嘴了，那次调用白烧。落库跟这次动作同一个事务，第 5 次骂当场生效。
+    bolted = body.action_type in runaway.HOSTILE and runaway_service.provoked(
+        db, couple.id, user.id, now, pending_action=body.action_type
+    )
 
     # 「分身回复」关掉时分身彻底不接话（AI 和本地文案都不出），把话头留给「本尊回应」。
     # 顺带一分 AI 额度都不烧——压根不查 quota。
-    if not user.ai_reply_enabled:
-        reaction_text = None
+    if bolted or not user.ai_reply_enabled:
+        reaction_text = None  # 走了的那一下不回嘴：纸条拍桌上就是它最后一句话
     elif needs_ai:
         if ai_quota_available(user, db):
             recent = _recent_context(db, couple.id, user.id, settings.deepseek_recent_context)
@@ -209,6 +264,14 @@ def do_action(
     )
     db.add(action_event)
     db.flush()  # assign action_event.id for the children
+
+    if bolted:
+        # 纸条**不挂 parent**（同进化旁白）：_bundle 只收 action 的子事件，挂上去会跟
+        # 「委屈爆表」旁白抢 HomeScreen 的 comfortText。前端靠 bundle.ran_away 换屏。
+        persona = _persona_for(db, pet)
+        note, _used_ai = generate_runaway_note(persona, persona["branch"], now.toordinal() + pet.id)
+        runaway_service.bolt(db, couple.id, user.id, note)
+
     if reaction_text is not None:
         db.add(
             Event(
@@ -232,7 +295,8 @@ def do_action(
             )
         )
 
-    # 记一次饲养：这只分身的进化只由「它的饲养者对它做了什么」推动
+    # 记一次饲养：这只分身的进化只由「它的饲养者对它做了什么」推动。
+    # 同框不翻倍——care 数的是「做了几次」，翻倍会把分支占比算歪。
     evo_view, evolved = evolution_service.bump_care(db, pet, body.action_type, now.isoformat())
     evolve_text = _EVOLVE_TEXT.get(evo_view["stage"]) if evolved else None
     if evolve_text:
@@ -256,7 +320,11 @@ def do_action(
     # 合并成一条发（同发一个人时不双响），tag 让 SW 端折叠。partner 需在此刻同步取成 int。
     partner_id = push_service.partner_of(couple, user.id)
     if partner_id is not None:
-        if needs_comfort(new_stats):
+        if bolted:
+            payload = _BOLTED_PUSH  # 跑掉的那只代表的正是 partner——这一条冲击力最大
+        elif body.action_type == "coax":
+            payload = _COAX_PUSH  # 回不回家，球在 partner 脚下
+        elif needs_comfort(new_stats):
             payload = {
                 "title": "🥺 委屈值爆表",
                 "body": "TA 那边委屈到爆表啦，快回去哄哄——喂口狗粮/抱一个/道个歉",
@@ -272,7 +340,7 @@ def do_action(
             }
         background_tasks.add_task(push_service.send_to_user, partner_id, payload)
 
-    return _bundle(db, couple.id, action_event, new_stats, evo_view, evolved)
+    return _bundle(db, couple.id, action_event, new_stats, evo_view, evolved, together, bolted)
 
 
 @router.post("/nudge")

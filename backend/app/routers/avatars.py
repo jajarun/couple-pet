@@ -8,7 +8,7 @@ from app.db import get_db
 from app.deps import get_active_couple, get_current_user
 from app.live_scheduler import dream_client_key
 from app.models import Avatar, Event, User
-from app.rules import streak
+from app.rules import runaway, streak
 from app.time_utils import utcnow
 
 router = APIRouter(prefix="/avatars", tags=["avatars"])
@@ -38,6 +38,19 @@ def _avatar_out(av: Avatar) -> dict:
     }
 
 
+def _runaway_out(db: Session, couple_id: int, keeper_id: int) -> dict:
+    """这只分身的出走三态。两个端点都带：
+    /pet → 我养的那只被我气跑了；/mine → 代表我的那只被 TA 气跑了（点头的按钮在我这儿）。
+    """
+    state = runaway_service.pet_state(db, couple_id, keeper_id)
+    home = state == runaway.HOME
+    return {
+        "runaway_state": state,
+        "is_away": not home,
+        "runaway_note": None if home else runaway_service.latest_note(db, couple_id, keeper_id),
+    }
+
+
 def _require_couple(db: Session, user: User):
     couple = get_active_couple(db, user)
     if couple is None:
@@ -53,7 +66,8 @@ def get_mine(db: Session = Depends(get_db), user: User = Depends(get_current_use
         .filter(Avatar.couple_id == couple.id, Avatar.subject_user_id == user.id)
         .first()
     )
-    return _avatar_out(av)
+    # keeper 是对方：代表我的那只，跑的是 TA 家的门
+    return {**_avatar_out(av), **_runaway_out(db, couple.id, av.keeper_user_id)}
 
 
 @router.put("/mine")
@@ -102,10 +116,8 @@ def get_pet(db: Session = Depends(get_db), user: User = Depends(get_current_user
         .filter(Avatar.couple_id == couple.id, Avatar.keeper_user_id == user.id)
         .first()
     )
-    away = runaway_service.is_pet_away(db, couple.id, user.id)
     return {
         **_avatar_out(av),
         "dream": _todays_dream(db, av),
-        "is_away": away,
-        "runaway_note": runaway_service.latest_note(db, couple.id, user.id) if away else None,
+        **_runaway_out(db, couple.id, user.id),
     }

@@ -4,7 +4,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import settings
-from app.routers import actions, auth, avatars, couples, daily, events, push
+from app.routers import (
+    actions,
+    auth,
+    avatars,
+    couples,
+    daily,
+    events,
+    presence,
+    push,
+    runaway,
+    story,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,19 +26,16 @@ def _utc_hour(local_hour: int) -> int:
 
 
 def _schedule_gameplay(scheduler, cron) -> None:
-    """挂玩法 job（梦话 / 出走检测）。不依赖推送配置——没 VAPID 也该做梦、也该闹脾气。"""
+    """挂玩法 job（分身梦话）。不依赖推送配置——没 VAPID 也该做梦。
+
+    离家出走没有 job：第 5 次骂落库的那一刻当场生效，长在 POST /actions 的事务里。
+    """
     from app import live_scheduler
 
     scheduler.add_job(
         live_scheduler.run_morning_dreams,
         cron(hour=_utc_hour(settings.dream_hour), minute=0),
         id="run_morning_dreams",
-    )
-    # 每小时一次：出走判据看的是 6 小时滑动窗口，扫得稀了会整段错过
-    scheduler.add_job(
-        live_scheduler.detect_runaways,
-        cron(minute=5),
-        id="detect_runaways",
     )
 
 
@@ -83,6 +91,9 @@ app.include_router(avatars.router)
 app.include_router(actions.router)
 app.include_router(events.router)
 app.include_router(daily.router)
+app.include_router(presence.router)
+app.include_router(story.router)
+app.include_router(runaway.router)
 app.include_router(push.router)
 
 

@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { myAvatarKey as avatarKey, useMyAvatar } from '../hooks/useAvatar'
 import { updateMyAvatar } from '../api/avatars'
 import { updateMe } from '../api/auth'
-import { AVATAR_EMOJIS, FALLBACK_AVATAR_EMOJI } from '../avatarOptions'
+import { FALLBACK_AVATAR_EMOJI } from '../avatarOptions'
+import { EmojiPicker } from '../components/EmojiPicker'
 import { EvolutionBar } from '../components/EvolutionBar'
 import { evolutionOf, faceOf } from '../evolution'
 import { Avatar } from '../api/types'
@@ -45,23 +46,10 @@ export function MyAvatarScreen({ onLogout }: { onLogout: () => void }) {
       <div className="card stack center" style={{ gap: 12 }}>
         <div className="pet-stage" style={{ padding: 0 }}>
           <div className="aura" />
-          <div className="pet-face" style={{ fontSize: 60 }}>{emoji}</div>
+          <EmojiPicker value={emoji} onChange={setEmoji} />
         </div>
+        <span className="tiny muted">点它换个造型</span>
         <input aria-label="分身名字" value={name} onChange={(e) => setName(e.target.value)} />
-
-        <div className="stack" style={{ gap: 8 }}>
-          <span className="tiny muted">造型</span>
-          <div className="emoji-chips">
-            {AVATAR_EMOJIS.map((em) => (
-              <button
-                type="button" key={em} className="emoji-chip"
-                aria-label={`emoji-${em}`} aria-pressed={em === emoji} onClick={() => setEmoji(em)}
-              >
-                {em}
-              </button>
-            ))}
-          </div>
-        </div>
 
         <button
           className="btn-primary btn-block"

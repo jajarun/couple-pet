@@ -2,6 +2,7 @@ import { FormEvent, CSSProperties, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { updateMyAvatar } from '../api/avatars'
 import { AVATAR_EMOJIS } from '../avatarOptions'
+import { EmojiPicker } from '../components/EmojiPicker'
 
 const TONES = [
   '毒舌', '傲娇', '憨憨', '沙雕', '舔狗', '高冷', '中二', '温柔',
@@ -52,6 +53,14 @@ export function AvatarCreateScreen() {
         <p className="muted tiny">这就是 TA 每天要面对的分身</p>
       </div>
 
+      <div className="stack center" style={{ gap: 4 }}>
+        <div className="pet-stage" style={{ padding: 0 }}>
+          <div className="aura" />
+          <EmojiPicker value={emoji} onChange={setEmoji} />
+        </div>
+        <span className="tiny muted">点它换个造型</span>
+      </div>
+
       <div className="stack" style={{ gap: 8 }}>
         <span className="tiny muted">基调（最多选 {MAX_TONES} 个）</span>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -72,20 +81,6 @@ export function AvatarCreateScreen() {
       </div>
 
       <input aria-label="名字" value={name} onChange={(e) => setName(e.target.value)} placeholder="给它起个名" />
-
-      <div className="stack" style={{ gap: 8 }}>
-        <span className="tiny muted">造型</span>
-        <div className="emoji-chips">
-          {AVATAR_EMOJIS.map((em) => (
-            <button
-              type="button" key={em} className="emoji-chip"
-              aria-label={`emoji-${em}`} aria-pressed={em === emoji} onClick={() => setEmoji(em)}
-            >
-              {em}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <textarea aria-label="种子设定" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="一句话形容对方眼里的你（AI 之后会扩写）" rows={3} />
 

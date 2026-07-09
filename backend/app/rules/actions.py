@@ -5,7 +5,10 @@ import random
 from app.rules.stats import clamp
 
 # coax（哄）是「离家出走」的专用解锁键：分身跑了才出现在 UI 上，正常态的 ActionBar 里没有它。
-ACTION_TYPES = ["scold", "poke", "feed_dogfood", "hug", "miss_you", "apologize", "chat", "coax"]
+# headpat（摸摸头）是「同框」限定键：两人同时开着页面才出现，对方一下线就消失（后端也拦）。
+ACTION_TYPES = [
+    "scold", "poke", "feed_dogfood", "hug", "miss_you", "apologize", "chat", "coax", "headpat",
+]
 
 # 需要叫 DeepSeek 的动作（骂 / 聊天）；其余走本地模板
 AI_ACTIONS = {"scold", "chat"}
@@ -20,6 +23,7 @@ ACTION_EFFECTS = {
     "apologize": {"grievance": -25, "intimacy": 8},
     "chat": {},
     "coax": {"grievance": -30, "intimacy": 5},
+    "headpat": {"intimacy": 3},
 }
 
 # 便宜动作的本地沙雕文案（不烧 API），随机挑一句。每个动作 50+ 条，尽量不重样。
@@ -347,6 +351,59 @@ LOCAL_REACTIONS = {
         "看在你跑这么快的份上，原谅你。",
         "我回来了。这次是真的回来了。",
     ],
+    # 只在「两人同框」时点得到，所以文案默认对面那个人正看着屏幕
+    "headpat": [
+        "唔…手别拿开，再摸一会儿。",
+        "摸头杀？这招对我超有效，别告诉别人。",
+        "隔着屏幕都能感觉到，你手好暖。",
+        "（眯眼）舒服，继续，往左边一点。",
+        "摸吧摸吧，反正我也不会长高了。",
+        "喵……呃我是说，哼，谁要你摸。",
+        "被你摸头的时候，世界特别安静。",
+        "你现在也在看着我，对吧？我知道。",
+        "头发被你揉乱了，但我一点也不生气。",
+        "这一下，够我开心一整天了。",
+        "手感如何？本尊的头顶限量供应。",
+        "别停，我尾巴都摇出残影了。",
+        "摸完记得说一句「乖」，流程要走完。",
+        "我今天什么都没做，就值得你这一摸？",
+        "你在，我就不怕黑了。",
+        "这只手，以后只准摸我一个。",
+        "（把头往你手心里蹭）……没什么，痒。",
+        "你这么温柔，我要怀疑你是不是心虚了。",
+        "被摸头的一瞬间，我原谅了你所有事。",
+        "轻点轻点，我头发会翘起来的。",
+        "隔空摸头这种事，怎么能这么甜。",
+        "你手一放上来，我脑子就空白了。",
+        "再摸下去我要化了，认真的。",
+        "本尊勉为其难地，享受一下。",
+        "这算不算隔着一整座城市的抱抱？",
+        "我把头低下来一点，方便你摸。",
+        "你不在的时候，我就自己摸自己的头。",
+        "被你摸的地方，会长出小花吧。",
+        "别看我一脸淡定，我心跳很快的。",
+        "摸头是我们之间的秘密暗号。",
+        "你手指路过的地方，都记住了。",
+        "唔，我可以在这只手底下睡着。",
+        "谢谢你现在在这里，真的。",
+        "再来一次，我刚刚没准备好。",
+        "你摸头的力道，和我想象的一模一样。",
+        "这一秒，我们在同一个地方。",
+        "别摸了别摸了…好吧再摸一下。",
+        "我头顶有个开关，被你按到了。",
+        "全世界只有你能这样对我。",
+        "被摸头的分身，运气不会太差。",
+        "我这颗脑袋，从今天起归你管。",
+        "你在线的时候，连空气都甜一点。",
+        "手别走，就放在那儿，什么都不用做。",
+        "我假装不在意，其实在偷偷数你摸了几下。",
+        "这种时候说什么都多余，你摸就是了。",
+        "摸头 +1，想你 +100。",
+        "你要是敢摸完就跑，我记你一辈子。",
+        "本尊今日份的电量，靠你这一摸续上了。",
+        "隔着屏幕，我也想蹭蹭你。",
+        "好啦好啦，我知道你喜欢我，摸得这么明显。",
+    ],
 }
 
 # 分身"主动撩你"时的本地兜底文案（无 key / 额度用尽时随机挑一句）
@@ -386,12 +443,13 @@ NUDGE_LINES = [
 ]
 
 
-def apply_action(stats: dict, action: str) -> tuple[dict, bool, str | None]:
+def apply_action(stats: dict, action: str, multiplier: int = 1) -> tuple[dict, bool, str | None]:
+    """multiplier=2 是「两人同框」——当着面，什么都更疼也更甜，负面增量一样翻倍。"""
     if action not in ACTION_EFFECTS:
         raise ValueError(f"unknown action: {action}")
     out = dict(stats)
     for key, delta in ACTION_EFFECTS[action].items():
-        out[key] = clamp(stats[key] + delta)
+        out[key] = clamp(stats[key] + delta * multiplier)
     needs_ai = action in AI_ACTIONS
     reaction = None if needs_ai else random.choice(LOCAL_REACTIONS[action])
     return out, needs_ai, reaction

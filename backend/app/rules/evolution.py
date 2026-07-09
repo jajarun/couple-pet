@@ -17,14 +17,16 @@ CARE_WEIGHTS = {
     "chat": 2,
     "miss_you": 2,
     "apologize": 2,
+    "headpat": 2,
     "feed_dogfood": 3,
     "hug": 3,
     "coax": 3,
 }
 
-# 分支归桶（定分支时看各桶占比）；coax（哄）是安抚，归 sweet
+# 分支归桶（定分支时看各桶占比）；coax（哄）是安抚、headpat（摸头）是宠溺，都归 sweet。
+# 注意 decide_branch 的分母只是各桶之和 —— 不进桶的动作对分支占比毫无影响。
 BRANCH_BUCKETS = {
-    "sweet": ("hug", "miss_you", "apologize", "coax"),
+    "sweet": ("hug", "miss_you", "apologize", "coax", "headpat"),
     "glutton": ("feed_dogfood",),
     "dark": ("scold", "poke"),
     "chatty": ("chat",),

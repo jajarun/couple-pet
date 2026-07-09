@@ -16,7 +16,18 @@ def _build_client() -> httpx.Client:
     )
 
 
-def chat_completion(messages: list[dict], *, http_client: httpx.Client | None = None) -> str:
+def chat_completion(
+    messages: list[dict],
+    *,
+    http_client: httpx.Client | None = None,
+    max_tokens: int | None = None,
+    temperature: float | None = None,
+) -> str:
+    """max_tokens / temperature 不传就取 settings 里的默认（200 / 1.3，为一句话的分身回话调的）。
+
+    需要长文本或稳定格式的调用方（如剧情副本的续写）自己传：短 token 会把故事拦腰截断，
+    高 temperature 会把「场景：…／A. …」这种严格格式写崩。
+    """
     client = http_client or _build_client()
     try:
         try:
@@ -26,8 +37,12 @@ def chat_completion(messages: list[dict], *, http_client: httpx.Client | None = 
                 json={
                     "model": settings.deepseek_model,
                     "messages": messages,
-                    "max_tokens": settings.deepseek_max_tokens,
-                    "temperature": settings.deepseek_temperature,
+                    "max_tokens": (
+                        max_tokens if max_tokens is not None else settings.deepseek_max_tokens
+                    ),
+                    "temperature": (
+                        temperature if temperature is not None else settings.deepseek_temperature
+                    ),
                     "stream": False,
                 },
             )

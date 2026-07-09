@@ -224,7 +224,9 @@ def test_each_keeper_grows_their_own_avatar(client):
 def test_adult_branch_reaches_the_ai_persona(client, monkeypatch):
     """闭环：养歪了的形态反过来改写分身的说话方式。"""
     ha, hb = _pair(client)
-    for i in range(40):  # scold=1 exp/次 → exp 40 → 成体，全是骂 → dark
+    # 先抱一下：1 小时窗口里有过安抚就不会出走，否则骂到第 5 次分身就跑了（rules/runaway.py）
+    _act(client, hb, "hug", "h0", "")
+    for i in range(40):  # scold=1 exp/次 → exp 40+ → 成体，几乎全是骂 → dark
         _act(client, hb, "scold", f"s{i}", "菜")
     import app.routers.actions as m
 

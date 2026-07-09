@@ -120,6 +120,70 @@ input:focus, textarea:focus {
   background: var(--primary-soft);
 }
 
+/* 点分身换造型：触发器就是分身本人，右下角挂个 ✏️ 说明它能点。
+   别叫 .emoji-trigger——那名字被聊天输入框的表情键占了（见下面 .chat-field 那段）。 */
+.face-picker {
+  position: relative;
+  background: transparent;
+  border: none;
+  padding: 6px;
+  min-height: auto;
+  border-radius: 30px;
+}
+.face-picker:active { transform: scale(0.92); }
+.face-picker-face { position: relative; font-size: 64px; line-height: 1; display: block; }
+.face-picker-badge {
+  position: absolute; right: -6px; bottom: -4px;   /* 蹭着脸的边，别糊在嘴上 */
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  font-size: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  box-shadow: var(--shadow-1);
+}
+
+/* ============ bottom sheet ============ */
+.sheet-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: color-mix(in srgb, var(--ink) 38%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  touch-action: none;   /* 别让手指划到底下那层去 */
+}
+.sheet {
+  width: 100%; max-width: var(--shell-max);
+  max-height: 78dvh;
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  box-shadow: var(--shadow-1);
+  padding-bottom: env(safe-area-inset-bottom);
+  /* 抽屉挂在触发它的那棵子树里，会把外面的 .center 一路继承进来（设置页居中、
+     捏脸页靠左）。钉死成左对齐，两处长一个样。 */
+  text-align: left;
+}
+.sheet:focus { outline: none; }
+.sheet-grip {
+  flex-shrink: 0;
+  width: 38px; height: 4px; margin: 8px auto 2px;
+  background: var(--line); border-radius: var(--r-pill);
+}
+.sheet-head {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px 4px;
+}
+.sheet-close { min-height: 40px; padding: 0 14px; font-size: 14px; }
+.sheet-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  touch-action: pan-y;   /* 面板内部还是要能上下滑 */
+  display: grid; gap: 14px;
+  padding: 8px 16px 16px;
+}
+
 /* ============ auth / brand ============ */
 .brand-mark {
   width: 66px; height: 66px; margin: 0 auto;
@@ -179,6 +243,43 @@ input:focus, textarea:focus {
 .pet-name {
   position: relative; text-align: center;
   font-weight: 700; color: var(--ink); margin-top: 2px;
+}
+
+/* ============ 同框：TA 也在线 ============ */
+.together-banner {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--r-pill);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  font-size: 14px; font-weight: 700;
+}
+.together-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 60%, transparent);
+  animation: pulse-dot 1.8s ease-out infinite;
+}
+@keyframes pulse-dot {
+  70%  { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.together-x2 {
+  padding: 1px 7px; border-radius: var(--r-pill);
+  background: var(--primary); color: var(--primary-ink);
+  font-size: 12px;
+}
+/* 两只镜像分身并排：左边我养的（代表 TA，可点），右边 TA 养的（代表我） */
+.snuggle {
+  position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 2px;
+}
+.snuggle-half { display: grid; place-items: center; }
+.snuggle-half .pet-face { font-size: 58px; }
+.snuggle-heart { position: relative; font-size: 22px; padding-bottom: 22px; }
+.poke-tip {
+  color: var(--primary-strong);
+  font-weight: 700; font-size: 14px;
 }
 
 /* ============ speech bubble ============ */
@@ -309,6 +410,7 @@ input[type='checkbox'] {
 .chat-field { position: relative; flex: 1; display: flex; }
 .chat-field input { flex: 1; padding-right: 46px; }   /* 给内嵌的表情键让位 */
 
+/* 聊天输入框里内嵌的表情键（不是换造型那个，那个叫 .face-picker） */
 .emoji-trigger {
   position: absolute;
   right: 6px; top: 50%;
@@ -401,6 +503,7 @@ input[type='checkbox'] {
   padding: 4px 12px; border-radius: var(--r-pill);
 }
 .tip.warn > span { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.tip.story > span { color: var(--primary-strong); background: var(--primary-soft); font-weight: 700; }
 .tip-respond {
   min-height: auto; padding: 5px 13px; margin-left: 8px;
   font-size: 12.5px; border-radius: var(--r-pill);
@@ -594,6 +697,17 @@ input[type='checkbox'] {
 }
 .runaway-note-text { margin: 0; color: var(--ink); font-size: 15px; line-height: 1.5; }
 
+/* 「代表我」的那只被 TA 气跑了：点头的卡片长在我的首页上 */
+.forgive-card {
+  display: grid; gap: 8px; width: 100%; max-width: 360px;
+  background: var(--surface); border: 1px solid var(--warn);
+  border-radius: var(--r); padding: 14px;
+}
+.forgive-title { font-weight: 700; color: var(--ink); }
+.forgive-card .runaway-note-text {
+  border-left: 3px solid var(--warn); padding-left: 10px; font-size: 14px;
+}
+
 /* ============ last night's dream ============ */
 .dream-card { display: grid; gap: 4px; border-left: 3px solid var(--primary-soft); }
 .dream-head { font-size: 13px; font-weight: 700; color: var(--ink-2); }
@@ -623,4 +737,54 @@ input[type='checkbox'] {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* ============ 剧情副本 ============ */
+.story-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+}
+.story-title { font-size: 18px; font-weight: 800; color: var(--ink); }
+.story-progress {
+  flex: none;
+  padding: 3px 10px; border-radius: var(--r-pill);
+  background: var(--primary-soft); color: var(--primary-strong);
+  font-size: 12px; font-weight: 700;
+}
+.story-round {
+  background: var(--surface);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-1);
+  padding: 16px;
+  display: grid; gap: 12px;
+}
+.story-scene { margin: 0; line-height: 1.75; color: var(--ink); }
+.story-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.story-pick {
+  padding: 3px 10px; border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--ink-2);
+  font-size: 12px; font-weight: 700;
+}
+.story-pick.partner { background: var(--primary-soft); color: var(--primary-strong); }
+.story-pick.same { background: var(--primary-soft); color: var(--primary-strong); }
+.story-options { display: grid; gap: 8px; }
+.story-option {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: var(--tap);
+  padding: 12px 14px; border-radius: var(--r);
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
+  color: var(--ink); font-weight: 700; font-size: 15px; text-align: left;
+}
+.story-option:active { background: var(--primary-soft); }
+.story-option:disabled { opacity: 0.55; }
+.story-letter {
+  flex: none;
+  display: grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--primary); color: var(--primary-ink);
+  font-size: 13px;
+}
+.story-waiting { display: grid; gap: 6px; justify-items: center; text-align: center; }
+.story-ending { display: grid; gap: 4px; justify-items: center; padding: 8px 0 4px; }
+.story-ending-tag {
+  letter-spacing: 4px; font-weight: 800; color: var(--primary-strong);
 }

@@ -28,6 +28,8 @@ class User(Base):
     ai_count_date: Mapped[object] = mapped_column(Date, nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)
     last_login_at: Mapped[object] = mapped_column(DateTime, nullable=True)
+    # 在线心跳。只有 POST /presence 写它；「TA 正在看这只分身」和同框 ×2 都读它。
+    last_seen_at: Mapped[object] = mapped_column(DateTime, nullable=True)
 
 
 class Couple(Base):
@@ -119,6 +121,58 @@ class DailyAnswer(Base):
     question_id: Mapped[int] = mapped_column(ForeignKey("daily_questions.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     content: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    client_key: Mapped[str] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+
+class Story(Base):
+    """一章剧情副本。每对每天至多开一章（唯一约束顺带挡住并发首建）；
+    没打完的会顺延到第二天（找 status='active' 的那章，不看 day）。"""
+
+    __tablename__ = "stories"
+    __table_args__ = (UniqueConstraint("couple_id", "day", name="uq_stories_couple_day"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    couple_id: Mapped[int] = mapped_column(ForeignKey("couples.id"), nullable=False)
+    day: Mapped[object] = mapped_column(Date, nullable=False)
+    title: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="active", nullable=False)
+    total_rounds: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)
+    ended_at: Mapped[object] = mapped_column(DateTime, nullable=True)
+
+
+class StoryRound(Base):
+    """一幕。options 为空列表 = 结局幕（没得选了）。
+
+    (story_id, round_no) 唯一：两人几乎同时选完时双方都可能去生成下一幕，靠它挡住重复插入。
+    """
+
+    __tablename__ = "story_rounds"
+    __table_args__ = (
+        UniqueConstraint("story_id", "round_no", name="uq_story_rounds_story_round"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    story_id: Mapped[int] = mapped_column(ForeignKey("stories.id"), nullable=False)
+    round_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    scene: Mapped[str] = mapped_column(Text, nullable=False)
+    options: Mapped[object] = mapped_column(JSON, default=list, nullable=False)
+    created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+
+class StoryChoice(Base):
+    """某人在某一幕的抉择。两人都选完才互相看得见（同每日一问的解锁范式）。"""
+
+    __tablename__ = "story_choices"
+    __table_args__ = (
+        UniqueConstraint("round_id", "user_id", name="uq_story_choices_round_user"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    round_id: Mapped[int] = mapped_column(ForeignKey("story_rounds.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    option_index: Mapped[int] = mapped_column(Integer, nullable=False)
     client_key: Mapped[str] = mapped_column(String(64), nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime, default=utcnow, nullable=False)
 

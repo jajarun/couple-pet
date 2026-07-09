@@ -37,6 +37,8 @@ def test_comfort_push_when_grievance_explodes(client, monkeypatch):
     calls = []
     monkeypatch.setattr(ps, "send_to_user", lambda uid, p: calls.append((uid, p)))
     ha, _ = _pair(client)
+    # 先抱一下：1 小时窗口里有过安抚就不会出走，否则骂到第 5 次分身就跑了（rules/runaway.py）
+    client.post("/actions", headers=ha, json={"action_type": "hug", "content": "", "client_key": "h0"})
     # 连续骂到委屈爆表（scold +15/次），最后一条应发「委屈」而非「action」
     for i in range(8):
         client.post("/actions", headers=ha, json={"action_type": "scold", "content": "", "client_key": f"s{i}"})

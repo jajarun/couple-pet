@@ -18,7 +18,13 @@ export interface Stats {
   miss: number
   intimacy: number
 }
-export type EventKind = 'action' | 'ai_reaction' | 'real_response' | 'system' | 'daily_qa'
+export type EventKind =
+  | 'action'
+  | 'ai_reaction'
+  | 'real_response'
+  | 'system'
+  | 'daily_qa'
+  | 'story'
 export interface GameEvent {
   id: number
   couple_id: number
@@ -53,10 +59,13 @@ export interface Avatar {
   evolution?: EvolutionView
   /** 今早那条梦话（只有 GET /avatars/pet 带）；今天还没做梦就是 null */
   dream?: { content: string; at: string } | null
-  /** 它被你气跑了（只有 GET /avatars/pet 带）。此时除了「哄」什么都做不了 */
+  /** 它还没回家（= runaway_state !== 'home'）。/pet 上是「我把它气跑了」，/mine 上是「TA 把我气跑了」 */
   is_away?: boolean
+  /** home 在家 / away 跑了没人哄 / pending 哄过了，就差它代表的那个人点头 */
+  runaway_state?: RunawayState
   runaway_note?: string | null
 }
+export type RunawayState = 'home' | 'away' | 'pending'
 export type CoupleState =
   | { couple_id: number; status: 'active'; partner_id: number; partner_gender?: 'male' | 'female' | null }
   | { couple_id: number; status: 'pending'; pair_code: string }
@@ -67,6 +76,14 @@ export interface ActionBundle {
   evolution?: EvolutionView
   /** 这一下刚好把分身推过了阶段线 → 放全屏进化动画 */
   evolved?: boolean
+  /** TA 此刻也开着页面（数值已按 ×2 结算）。是「现在」的标志，不是这次动作的历史记录 */
+  together?: boolean
+  /** 就是这一下把它逼走的（骂满第 5 次）。纸条不在 events 里，得重取 /avatars/pet */
+  ran_away?: boolean
+}
+/** POST /presence 的返回：打完心跳顺带告诉你 TA 在不在 */
+export interface PresenceView {
+  partner_online: boolean
 }
 export interface FeedResponse {
   events: GameEvent[]
@@ -87,6 +104,27 @@ export interface DailyResponse {
   partner_answer: string | null
   both_answered: boolean
   streak: StreakView
+}
+/** 剧情副本的一幕。options 为空 = 结局幕。partner_choice 只在两人都选完后才有值。 */
+export interface StoryRound {
+  round_no: number
+  scene: string
+  options: string[]
+  my_choice: number | null
+  partner_choice: number | null
+  both_chose: boolean
+}
+export interface StoryResponse {
+  story: {
+    id: number
+    title: string
+    day: string
+    status: 'active' | 'ended'
+    total_rounds: number
+  }
+  rounds: StoryRound[]
+  /** 最后一幕还有选项、而我还没选 → 该你了（驱动 🎭 页签的红点） */
+  my_turn: boolean
 }
 export interface PushSubscribePayload {
   endpoint: string

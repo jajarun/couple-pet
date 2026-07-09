@@ -12,6 +12,7 @@ from app.db import Base, engine
 # (表名, 列名, 建列 DDL)——DDL 写法须 SQLite / MySQL 通用
 _ADDED_COLUMNS = [
     ("users", "ai_reply_enabled", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("users", "last_seen_at", "DATETIME NULL"),
 ]
 
 

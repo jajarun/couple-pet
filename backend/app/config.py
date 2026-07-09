@@ -17,10 +17,13 @@ class Settings(BaseSettings):
     deepseek_temperature: float = 1.3
     deepseek_recent_context: int = 10  # 喂进 prompt 的最近事件条数
     nudge_idle_seconds: int = 55  # 距上条事件多久没动静，分身才主动撩你（前端约每分钟轮询一次）
+    # 多久没打心跳就算下线。前端每 10 秒一次，留 2.5 倍冗余；同框期间互动数值 ×2。
+    presence_ttl_seconds: int = 25
     streak_utc_offset_hours: int = 8  # 火苗日界时区偏移（8=上海，无 DST）
     # 后台定时任务总开关。测试里关掉（conftest 的 TestClient 会跑 lifespan）。
     enable_scheduler: bool = True
     dream_hour: int = 8  # 每天几点（UTC+8）生成昨夜梦话并推送。别挪到半夜——推送会响。
+    story_rounds: int = 4  # 剧情副本有几幕带选项；之后再加一幕结局
     # Web Push（VAPID）。空 private key = 关闭推送（dev/CI 离线兜底，同 deepseek_api_key 范式）。
     vapid_public_key: str = ""  # 前端订阅要用，走 GET /push/public-key 下发
     vapid_private_key: str = ""  # 只在服务端，前端永不可见

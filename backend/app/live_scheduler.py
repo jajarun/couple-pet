@@ -4,18 +4,21 @@
 （发推那一步走 push_service.send_to_user，无私钥自动 no-op，天然安全）。
 
 跑在 uvicorn 进程内（main.py lifespan 的 APScheduler 触发）。自开 SessionLocal。永不抛。
+
+**离家出走不在这里**：判据是「1 小时内骂满 5 次」，第 5 次骂落库的那一刻当场生效，
+所以它长在 POST /actions 的事务里，没有定时任务（见 routers/actions.py）。
 """
 
 import logging
 
 from sqlalchemy.exc import IntegrityError
 
-from app import push_service, runaway_service
-from app.ai.dream import generate_dream, generate_runaway_note
+from app import push_service
+from app.ai.dream import generate_dream
 from app.config import settings
 from app.db import SessionLocal
 from app.models import Avatar, Couple, CoupleStats, Event, User
-from app.rules import evolution, runaway, streak
+from app.rules import evolution, streak
 from app.time_utils import utcnow
 
 logger = logging.getLogger(__name__)
@@ -27,20 +30,9 @@ _DREAM_PUSH = {
     "tag": "dream",
 }
 
-_RUNAWAY_PUSH = {
-    "title": "🪹 它离家出走了",
-    "body": "你养的那只分身受不了了，留了张纸条就跑了。快去把它哄回来。",
-    "url": "/",
-    "tag": "runaway",
-}
-
 
 def _today():
     return streak.today_for(utcnow(), settings.streak_utc_offset_hours)
-
-
-def _now():
-    return utcnow()
 
 
 def dream_client_key(avatar_id: int, day) -> str:
@@ -108,51 +100,5 @@ def run_morning_dreams() -> None:
                     db.rollback()
     except Exception as e:
         logger.warning("run_morning_dreams crashed: %s", e)
-    finally:
-        db.close()
-
-
-def _maybe_run_away(db, couple: Couple, avatar: Avatar, now) -> bool:
-    """一只分身够不够委屈到出走。够就落纸条事件。返回是否刚跑掉。"""
-    keeper_id = avatar.keeper_user_id
-    already_away = runaway_service.is_pet_away(db, couple.id, keeper_id)
-    hostile, soothe = runaway_service.recent_treatment(db, couple.id, keeper_id, now)
-    if not runaway.should_run_away(hostile, soothe, already_away):
-        return False
-
-    note, _used_ai = generate_runaway_note(
-        _persona_for(db, avatar), _branch_of(avatar), now.toordinal() + avatar.id
-    )
-    db.add(
-        Event(
-            couple_id=couple.id,
-            actor_user_id=keeper_id,  # actor=keeper，才能跟 coax 配对（见 runaway_service 顶部）
-            kind="system",
-            action_type="runaway",
-            content=note,
-        )
-    )
-    db.commit()
-    return True
-
-
-def detect_runaways() -> None:
-    """每小时扫一遍：谁在近 6 小时里只骂不哄，谁养的分身就留张纸条跑掉。
-
-    跑得勤是必须的——判据看的是滑动窗口内的动作数，窗口一滑过去就不该再触发。
-    """
-    db = SessionLocal()
-    try:
-        now = _now()
-        for couple in db.query(Couple).filter(Couple.status == "active").all():
-            for avatar in _active_avatars(db, couple):
-                try:
-                    if _maybe_run_away(db, couple, avatar, now):
-                        push_service.send_to_user(avatar.keeper_user_id, _RUNAWAY_PUSH)
-                except Exception as e:  # 一只翻车不该拖垮其余
-                    logger.warning("runaway failed (avatar=%s): %s", avatar.id, e)
-                    db.rollback()
-    except Exception as e:
-        logger.warning("detect_runaways crashed: %s", e)
     finally:
         db.close()

@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -80,3 +82,31 @@ def test_chat_completion_raises_on_non_dict_choice():
 
     with pytest.raises(AIError):
         chat_completion([{"role": "user", "content": "hi"}], http_client=_client(handler))
+
+
+def _sent_body(**kwargs) -> dict:
+    seen = {}
+
+    def handler(request):
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    chat_completion([{"role": "user", "content": "hi"}], http_client=_client(handler), **kwargs)
+    return seen
+
+
+def test_chat_completion_defaults_to_the_settings_knobs():
+    body = _sent_body()
+    assert body["max_tokens"] == settings.deepseek_max_tokens
+    assert body["temperature"] == settings.deepseek_temperature
+
+
+def test_chat_completion_honours_per_call_overrides():
+    """剧情副本要长文本 + 稳格式，200 token / 1.3 温度都不行。"""
+    body = _sent_body(max_tokens=500, temperature=0.9)
+    assert body["max_tokens"] == 500
+    assert body["temperature"] == 0.9
+
+
+def test_a_zero_override_is_not_swallowed_by_falsiness():
+    assert _sent_body(temperature=0.0)["temperature"] == 0.0

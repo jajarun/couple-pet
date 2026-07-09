@@ -9,10 +9,22 @@ const ACTIONS: { type: string; label: string; emoji: string }[] = [
   { type: 'apologize', label: '道歉', emoji: '🙇' },
 ]
 
-export function ActionBar({ onAction, disabled }: { onAction: (type: string) => void; disabled?: boolean }) {
+// 同框限定：TA 也开着页面时才出现，TA 一下线这个键就消失（后端也拦，见 not_together）
+const HEADPAT = { type: 'headpat', label: '摸摸头', emoji: '🫳' }
+
+export function ActionBar({
+  onAction,
+  disabled,
+  together,
+}: {
+  onAction: (type: string) => void
+  disabled?: boolean
+  together?: boolean
+}) {
+  const actions = together ? [...ACTIONS, HEADPAT] : ACTIONS
   return (
     <div className="actions-grid">
-      {ACTIONS.map((a) => (
+      {actions.map((a) => (
         <PressButton key={a.type} onPress={() => onAction(a.type)} disabled={disabled}>
           <span className="emoji" aria-hidden="true">{a.emoji}</span>
           <span>{a.label}</span>

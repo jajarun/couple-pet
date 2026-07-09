@@ -19,6 +19,8 @@ def _scold(client, headers, key):
 
 def test_system_narration_appears_when_grievance_maxes(client):
     ha, hb = _pair(client)
+    # 先抱一下：1 小时窗口里有过安抚就不会出走，否则骂到第 5 次分身就跑了（rules/runaway.py）
+    client.post("/actions", headers=hb, json={"action_type": "hug", "content": "", "client_key": "h0"})
     bundle = {}
     # scold +15 each; 6 scolds → 90 >= threshold 80 (fast, minimal time decay)
     for i in range(6):

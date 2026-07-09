@@ -5,9 +5,42 @@ from app.rules.actions import ACTION_TYPES, AI_ACTIONS, LOCAL_REACTIONS, apply_a
 
 def test_action_types_cover_roast_and_sweet():
     assert set(ACTION_TYPES) == {
-        "scold", "poke", "feed_dogfood", "hug", "miss_you", "apologize", "chat", "coax"
+        "scold", "poke", "feed_dogfood", "hug", "miss_you", "apologize", "chat", "coax", "headpat"
     }
     assert AI_ACTIONS == {"scold", "chat"}
+
+
+def test_headpat_only_warms_intimacy():
+    stats = {"grievance": 40, "dogfood": 0, "miss": 50, "intimacy": 10}
+    new, needs_ai, reaction = apply_action(stats, "headpat")
+    assert new == {"grievance": 40, "dogfood": 0, "miss": 50, "intimacy": 13}
+    assert needs_ai is False
+    assert reaction in LOCAL_REACTIONS["headpat"]
+
+
+def test_being_together_doubles_everything_including_the_hurt():
+    """同框 ×2：当着面，什么都更疼也更甜。负面增量一样翻倍。"""
+    stats = {"grievance": 10, "dogfood": 0, "miss": 0, "intimacy": 0}
+    assert apply_action(stats, "scold", 2)[0]["grievance"] == 40  # +15 → +30
+    sweet = {"grievance": 0, "dogfood": 0, "miss": 80, "intimacy": 5}
+    doubled = apply_action(sweet, "hug", 2)[0]
+    assert doubled["miss"] == 20      # -30 → -60
+    assert doubled["intimacy"] == 25  # +10 → +20
+
+
+def test_doubling_still_clamps_to_the_0_100_box():
+    assert apply_action({"grievance": 95, "dogfood": 0, "miss": 0, "intimacy": 0}, "scold", 2)[0][
+        "grievance"
+    ] == 100
+    assert apply_action({"grievance": 0, "dogfood": 0, "miss": 10, "intimacy": 0}, "hug", 2)[0][
+        "miss"
+    ] == 0
+
+
+def test_multiplier_defaults_to_one():
+    """默认不翻倍——一个人在玩的时候，数值还是老样子。"""
+    stats = {"grievance": 10, "dogfood": 0, "miss": 0, "intimacy": 0}
+    assert apply_action(stats, "scold")[0] == apply_action(stats, "scold", 1)[0]
 
 
 def test_coax_soothes_and_warms():
